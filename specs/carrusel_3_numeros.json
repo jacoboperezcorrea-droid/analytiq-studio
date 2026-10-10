@@ -1,0 +1,218 @@
+{
+ "kind": "carousel",
+ "title": "3 números que todo negocio debe saber",
+ "slides": [
+  {
+   "items": [
+    {
+     "t": "text",
+     "text": "3 números",
+     "y": 420,
+     "size": 110,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "que todo negocio",
+     "y": 550,
+     "size": 80,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "debe saber.",
+     "y": 650,
+     "size": 80,
+     "w": 900,
+     "color": "dato",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Si no los tienes claros, estás manejando a ciegas.",
+     "y": 860,
+     "size": 44,
+     "w": 500,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    }
+   ]
+  },
+  {
+   "items": [
+    {
+     "t": "text",
+     "text": "1",
+     "y": 330,
+     "size": 200,
+     "w": 900,
+     "color": "dato",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Margen real",
+     "y": 560,
+     "size": 80,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Lo que te queda después de pagar todo: producto, arriendo, nómina y servicios. No lo que te queda en caja hoy.",
+     "y": 700,
+     "size": 44,
+     "w": 500,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    }
+   ]
+  },
+  {
+   "items": [
+    {
+     "t": "text",
+     "text": "2",
+     "y": 330,
+     "size": 200,
+     "w": 900,
+     "color": "dato",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Punto de equilibrio",
+     "y": 560,
+     "size": 80,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Cuánto tienes que vender al mes solo para no perder plata. De ahí para arriba empieza la ganancia.",
+     "y": 700,
+     "size": 44,
+     "w": 500,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    }
+   ]
+  },
+  {
+   "items": [
+    {
+     "t": "text",
+     "text": "3",
+     "y": 330,
+     "size": 200,
+     "w": 900,
+     "color": "dato",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Ticket promedio",
+     "y": 560,
+     "size": 80,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Cuánto gasta cada cliente por compra. Subirlo un poco suele ser más fácil que conseguir clientes nuevos.",
+     "y": 700,
+     "size": 44,
+     "w": 500,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    }
+   ]
+  },
+  {
+   "items": [
+    {
+     "t": "text",
+     "text": "¿Los tienes claros?",
+     "y": 420,
+     "size": 80,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "box",
+     "y": 620,
+     "height": 260,
+     "color": "dato"
+    },
+    {
+     "t": "rich",
+     "parts": [
+      [
+       "Escribe ",
+       "white"
+      ],
+      [
+       "NÚMEROS",
+       "orange"
+      ]
+     ],
+     "x": "C",
+     "y": 670,
+     "size": 54
+    },
+    {
+     "t": "text",
+     "text": "y te ayudamos a sacarlos.",
+     "y": 770,
+     "size": 44,
+     "w": 500,
+     "color": "white",
+     "at": 0,
+     "x": "C"
+    },
+    {
+     "t": "text",
+     "text": "AnalytiQ Core",
+     "y": 1000,
+     "size": 60,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "C"
+    },
+    {
+     "t": "text",
+     "text": "Inteligencia comercial para tu negocio",
+     "y": 1090,
+     "size": 36,
+     "w": 500,
+     "color": "dato",
+     "at": 0,
+     "x": "C"
+    }
+   ]
+  }
+ ]
+}

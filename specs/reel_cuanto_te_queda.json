@@ -1,0 +1,493 @@
+{
+ "kind": "reel",
+ "title": "¿Y cuánto te queda?",
+ "cover_at": 3.0,
+ "scenes": [
+  {
+   "dur": 3.6,
+   "items": [
+    {
+     "t": "text",
+     "text": "Tu negocio vende",
+     "y": 620,
+     "size": 64,
+     "w": 700,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "counter",
+     "to": 20000000,
+     "style": "money",
+     "y": 720,
+     "size": 128,
+     "w": 900,
+     "at": 0.3,
+     "dur": 1.2
+    },
+    {
+     "t": "text",
+     "text": "al mes.",
+     "y": 880,
+     "size": 64,
+     "w": 700,
+     "color": "white",
+     "at": 0.6,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "¿Y cuánto",
+     "y": 1060,
+     "size": 96,
+     "w": 900,
+     "color": "dato",
+     "at": 1.8,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "te queda?",
+     "y": 1170,
+     "size": 96,
+     "w": 900,
+     "color": "dato",
+     "at": 2.1,
+     "x": "L"
+    }
+   ]
+  },
+  {
+   "dur": 5.4,
+   "items": [
+    {
+     "t": "text",
+     "text": "Saquémosle la cuenta",
+     "y": 380,
+     "size": 70,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Ventas",
+     "y": 540,
+     "size": 44,
+     "w": 700,
+     "color": "white",
+     "at": 0.4,
+     "x": "L"
+    },
+    {
+     "t": "counter",
+     "to": 20000000,
+     "style": "money",
+     "prefix": "+ ",
+     "x": "R",
+     "y": 540,
+     "size": 44,
+     "w": 800,
+     "color": "white",
+     "at": 0.4,
+     "dur": 0.01,
+     "from": 0
+    },
+    {
+     "t": "bar",
+     "y": 610,
+     "frac": 1.0,
+     "color": "white",
+     "at": 0.4
+    },
+    {
+     "t": "text",
+     "text": "Costo del producto",
+     "y": 690,
+     "size": 44,
+     "w": 700,
+     "color": "white",
+     "at": 0.9500000000000001,
+     "x": "L"
+    },
+    {
+     "t": "counter",
+     "to": 9000000,
+     "style": "money",
+     "prefix": "- ",
+     "x": "R",
+     "y": 690,
+     "size": 44,
+     "w": 800,
+     "color": "dato",
+     "at": 0.9500000000000001,
+     "dur": 0.01,
+     "from": 0
+    },
+    {
+     "t": "bar",
+     "y": 760,
+     "frac": 0.45,
+     "color": "dato",
+     "at": 0.9500000000000001
+    },
+    {
+     "t": "text",
+     "text": "Arriendo",
+     "y": 840,
+     "size": 44,
+     "w": 700,
+     "color": "white",
+     "at": 1.5,
+     "x": "L"
+    },
+    {
+     "t": "counter",
+     "to": 3500000,
+     "style": "money",
+     "prefix": "- ",
+     "x": "R",
+     "y": 840,
+     "size": 44,
+     "w": 800,
+     "color": "dato",
+     "at": 1.5,
+     "dur": 0.01,
+     "from": 0
+    },
+    {
+     "t": "bar",
+     "y": 910,
+     "frac": 0.175,
+     "color": "dato",
+     "at": 1.5
+    },
+    {
+     "t": "text",
+     "text": "Nómina",
+     "y": 990,
+     "size": 44,
+     "w": 700,
+     "color": "white",
+     "at": 2.0500000000000003,
+     "x": "L"
+    },
+    {
+     "t": "counter",
+     "to": 4000000,
+     "style": "money",
+     "prefix": "- ",
+     "x": "R",
+     "y": 990,
+     "size": 44,
+     "w": 800,
+     "color": "dato",
+     "at": 2.0500000000000003,
+     "dur": 0.01,
+     "from": 0
+    },
+    {
+     "t": "bar",
+     "y": 1060,
+     "frac": 0.2,
+     "color": "dato",
+     "at": 2.0500000000000003
+    },
+    {
+     "t": "text",
+     "text": "Servicios y otros",
+     "y": 1140,
+     "size": 44,
+     "w": 700,
+     "color": "white",
+     "at": 2.6,
+     "x": "L"
+    },
+    {
+     "t": "counter",
+     "to": 2300000,
+     "style": "money",
+     "prefix": "- ",
+     "x": "R",
+     "y": 1140,
+     "size": 44,
+     "w": 800,
+     "color": "dato",
+     "at": 2.6,
+     "dur": 0.01,
+     "from": 0
+    },
+    {
+     "t": "bar",
+     "y": 1210,
+     "frac": 0.115,
+     "color": "dato",
+     "at": 2.6
+    },
+    {
+     "t": "line",
+     "y": 1300,
+     "color": "white",
+     "at": 3.3
+    },
+    {
+     "t": "text",
+     "text": "Te queda",
+     "y": 1340,
+     "size": 60,
+     "w": 900,
+     "color": "white",
+     "at": 3.6,
+     "x": "L"
+    },
+    {
+     "t": "counter",
+     "to": 1200000,
+     "style": "money",
+     "x": "R",
+     "y": 1340,
+     "size": 60,
+     "w": 900,
+     "at": 3.6,
+     "dur": 0.9
+    }
+   ]
+  },
+  {
+   "dur": 3.6,
+   "items": [
+    {
+     "t": "text",
+     "text": "Te queda el",
+     "y": 560,
+     "size": 64,
+     "w": 700,
+     "color": "white",
+     "at": 0,
+     "x": "C"
+    },
+    {
+     "t": "pop",
+     "text": "6%",
+     "x": "C",
+     "y": 900,
+     "size": 360,
+     "color": "orange",
+     "at": 0.3
+    },
+    {
+     "t": "text",
+     "text": "de lo que vendes.",
+     "y": 1090,
+     "size": 64,
+     "w": 700,
+     "color": "white",
+     "at": 0.8,
+     "x": "C"
+    },
+    {
+     "t": "text",
+     "text": "Por cada $100.000 que entran,",
+     "y": 1290,
+     "size": 44,
+     "w": 500,
+     "color": "dato",
+     "at": 1.6,
+     "x": "C"
+    },
+    {
+     "t": "text",
+     "text": "te quedan $6.000.",
+     "y": 1350,
+     "size": 44,
+     "w": 800,
+     "color": "dato",
+     "at": 1.8,
+     "x": "C"
+    }
+   ]
+  },
+  {
+   "dur": 3.6,
+   "items": [
+    {
+     "t": "text",
+     "text": "Vender más",
+     "y": 600,
+     "size": 100,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "no arregla",
+     "y": 715,
+     "size": 100,
+     "w": 900,
+     "color": "white",
+     "at": 0.25,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "un margen roto.",
+     "y": 830,
+     "size": 100,
+     "w": 900,
+     "color": "white",
+     "at": 0.5,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Primero hay que",
+     "y": 1090,
+     "size": 60,
+     "w": 700,
+     "color": "dato",
+     "at": 1.4,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "sacarle la cuenta.",
+     "y": 1165,
+     "size": 60,
+     "w": 700,
+     "color": "dato",
+     "at": 1.6,
+     "x": "L"
+    }
+   ]
+  },
+  {
+   "dur": 4.0,
+   "items": [
+    {
+     "t": "text",
+     "text": "AnalytiQ Core",
+     "y": 640,
+     "size": 104,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "C"
+    },
+    {
+     "t": "text",
+     "text": "Inteligencia comercial para tu negocio",
+     "y": 780,
+     "size": 40,
+     "w": 500,
+     "color": "dato",
+     "at": 0.3,
+     "x": "C"
+    },
+    {
+     "t": "box",
+     "y": 960,
+     "height": 300,
+     "color": "dato",
+     "at": 0.9
+    },
+    {
+     "t": "rich",
+     "parts": [
+      [
+       "Escribe ",
+       "white"
+      ],
+      [
+       "CUENTA",
+       "orange"
+      ]
+     ],
+     "x": "C",
+     "y": 1010,
+     "size": 54,
+     "at": 0.9
+    },
+    {
+     "t": "text",
+     "text": "en los comentarios y te",
+     "y": 1100,
+     "size": 44,
+     "w": 500,
+     "color": "white",
+     "at": 0.9,
+     "x": "C"
+    },
+    {
+     "t": "text",
+     "text": "ayudamos a sacar la tuya.",
+     "y": 1160,
+     "size": 44,
+     "w": 500,
+     "color": "white",
+     "at": 0.9,
+     "x": "C"
+    }
+   ]
+  },
+  {
+   "dur": 3.8,
+   "items": [
+    {
+     "t": "text",
+     "text": "Por cierto...",
+     "y": 560,
+     "size": 56,
+     "w": 700,
+     "color": "dato",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Este video",
+     "y": 680,
+     "size": 104,
+     "w": 900,
+     "color": "white",
+     "at": 0.5,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "lo hizo nuestra IA.",
+     "y": 800,
+     "size": 92,
+     "w": 900,
+     "color": "white",
+     "at": 0.75,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Datos, diseño y animación.",
+     "y": 980,
+     "size": 50,
+     "w": 700,
+     "color": "dato",
+     "at": 1.3,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "¿Quieres contenido así para tu negocio? Escríbenos.",
+     "y": 1150,
+     "size": 58,
+     "w": 800,
+     "color": "white",
+     "at": 1.9,
+     "x": "L",
+     "lh": 1.3
+    }
+   ]
+  }
+ ]
+}
