@@ -1,0 +1,275 @@
+{
+ "kind": "reel",
+ "title": "¿Tu negocio responde a las 11 p. m.?",
+ "cover_at": 2.6,
+ "scenes": [
+  {
+   "dur": 3.8,
+   "items": [
+    {
+     "t": "text",
+     "text": "Son las 11:07 p. m.",
+     "y": 560,
+     "size": 60,
+     "w": 700,
+     "color": "dato",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Un cliente te escribe:",
+     "y": 660,
+     "size": 64,
+     "w": 800,
+     "color": "white",
+     "at": 0.4,
+     "x": "L"
+    },
+    {
+     "t": "box",
+     "y": 820,
+     "height": 230,
+     "color": "dato",
+     "at": 1.0
+    },
+    {
+     "t": "text",
+     "text": "Hola, ¿tienen disponible para mañana? ¿Qué precio tiene?",
+     "y": 860,
+     "size": 46,
+     "w": 500,
+     "color": "white",
+     "at": 1.1,
+     "x": 130,
+     "maxw": 820,
+     "lh": 1.25
+    }
+   ]
+  },
+  {
+   "dur": 3.4,
+   "items": [
+    {
+     "t": "text",
+     "text": "Tú estás",
+     "y": 560,
+     "size": 104,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "dormido.",
+     "y": 675,
+     "size": 104,
+     "w": 900,
+     "color": "white",
+     "at": 0.2,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Tu competencia",
+     "y": 900,
+     "size": 96,
+     "w": 900,
+     "color": "dato",
+     "at": 1.0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "no.",
+     "y": 1010,
+     "size": 96,
+     "w": 900,
+     "color": "dato",
+     "at": 1.3,
+     "x": "L"
+    }
+   ]
+  },
+  {
+   "dur": 4.6,
+   "items": [
+    {
+     "t": "text",
+     "text": "Su WhatsApp:",
+     "y": 520,
+     "size": 60,
+     "w": 700,
+     "color": "dato",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Respondió en 3 segundos.",
+     "y": 640,
+     "size": 54,
+     "w": 800,
+     "color": "white",
+     "at": 0.5,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Le mandó precios y fotos.",
+     "y": 740,
+     "size": 54,
+     "w": 800,
+     "color": "white",
+     "at": 1.3,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Le agendó la cita.",
+     "y": 840,
+     "size": 54,
+     "w": 800,
+     "color": "white",
+     "at": 2.1,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Sin que nadie tocara el celular.",
+     "y": 1000,
+     "size": 46,
+     "w": 500,
+     "color": "dato",
+     "at": 3.0,
+     "x": "L"
+    }
+   ]
+  },
+  {
+   "dur": 3.6,
+   "items": [
+    {
+     "t": "text",
+     "text": "A las 8 a. m.",
+     "y": 600,
+     "size": 64,
+     "w": 700,
+     "color": "dato",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "ese cliente",
+     "y": 700,
+     "size": 104,
+     "w": 900,
+     "color": "white",
+     "at": 0.3,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "ya compró.",
+     "y": 820,
+     "size": 104,
+     "w": 900,
+     "color": "white",
+     "at": 0.6,
+     "x": "L"
+    },
+    {
+     "t": "pop",
+     "text": "Pero no a ti.",
+     "x": "C",
+     "y": 1130,
+     "size": 92,
+     "color": "orange",
+     "at": 1.6
+    }
+   ]
+  },
+  {
+   "dur": 5.2,
+   "items": [
+    {
+     "t": "text",
+     "text": "Automatizamos",
+     "y": 520,
+     "size": 96,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "tu WhatsApp.",
+     "y": 630,
+     "size": 96,
+     "w": 900,
+     "color": "white",
+     "at": 0.2,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Responde, cotiza y agenda las 24 horas, conectado a tus ventas.",
+     "y": 800,
+     "size": 50,
+     "w": 500,
+     "color": "dato",
+     "at": 0.7,
+     "x": "L",
+     "lh": 1.25
+    },
+    {
+     "t": "box",
+     "y": 1040,
+     "height": 250,
+     "color": "dato",
+     "at": 1.4
+    },
+    {
+     "t": "rich",
+     "parts": [
+      [
+       "Escribe ",
+       "white"
+      ],
+      [
+       "BOT",
+       "orange"
+      ]
+     ],
+     "x": "C",
+     "y": 1085,
+     "size": 60,
+     "at": 1.4
+    },
+    {
+     "t": "text",
+     "text": "o al +57 310 219 7559",
+     "y": 1180,
+     "size": 46,
+     "w": 700,
+     "color": "white",
+     "at": 1.6,
+     "x": "C"
+    },
+    {
+     "t": "text",
+     "text": "AnalytiQ Core",
+     "y": 1450,
+     "size": 48,
+     "w": 800,
+     "color": "dato",
+     "at": 2.0,
+     "x": "C"
+    }
+   ]
+  }
+ ]
+}

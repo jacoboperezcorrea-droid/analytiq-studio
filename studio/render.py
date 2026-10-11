@@ -31,6 +31,7 @@ COLORS = {
 }
 GRID = (16, 57, 89)
 MARGIN = 90
+BOX_PAD = 40
 
 _fc = {}
 def font(weight, size):
@@ -96,9 +97,17 @@ class Canvas:
         c = mix(col(it.get("color", "white")), a)
         if t == "text":
             f = font(it.get("w", 700), it.get("size", 60))
-            maxw = it.get("maxw", self.w - 2 * MARGIN)
+            pad = BOX_PAD if it.get("boxed") else 0
+            maxw = it.get("maxw", self.w - 2 * MARGIN) - 2 * pad
             lh = it.get("lh", 1.18) * it.get("size", 60)
-            for i, line in enumerate(wrap(d, it["text"], f, maxw)):
+            lines = wrap(d, it["text"], f, maxw)
+            if pad:
+                bh = len(lines) * lh + 2 * pad - (lh - it.get("size", 60))
+                d.rounded_rectangle([MARGIN, y, self.w - MARGIN, y + bh], radius=28,
+                                    outline=mix(col(it.get("box_color", "dato")), a), width=4)
+                x = self.w // 2 if h == "m" else (x + pad if h == "l" else x - pad)
+                y += pad
+            for i, line in enumerate(lines):
                 d.text((x, y + i * lh), line, font=f, fill=c, anchor=h + "a")
         elif t == "rich":
             f = font(it.get("w", 800), it.get("size", 54))
@@ -129,6 +138,77 @@ class Canvas:
             d.rounded_rectangle([x, y, x + it.get("width", self.w - 2 * MARGIN), y + it["height"]],
                                 radius=it.get("radius", 28), outline=c, width=it.get("thick", 4))
 
+# ---------- Acomodo automatico ----------
+# Si los elementos de una escena/slide no traen "y", se apilan de arriba abajo, centrados en la
+# zona segura, y se achican solos si no caben. Asi un guion escrito por IA nunca se monta.
+
+_measure = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+
+def _final_text(it):
+    if it["t"] == "counter":
+        return it.get("prefix", "") + fmt_number(it["to"], it.get("style", "money")) + it.get("suffix", "")
+    if it["t"] == "rich":
+        return "".join(p[0] for p in it["parts"])
+    return it.get("text", "")
+
+def measure(it, W):
+    t, size = it["t"], it.get("size", 60)
+    full = W - 2 * MARGIN
+    if t == "text":
+        pad = BOX_PAD if it.get("boxed") else 0
+        f = font(it.get("w", 700), size)
+        lh = it.get("lh", 1.18) * size
+        n = len(wrap(_measure, it["text"], f, it.get("maxw", full) - 2 * pad))
+        return n * lh - (lh - size) + 2 * pad + size * 0.25
+    if t in ("counter", "rich", "pop"):
+        return size * (1.0 if t == "pop" else 1.2)
+    if t in ("bar", "line"):
+        return it.get("thick", 14) + 6
+    if t == "box":
+        return it.get("height", 200)
+    return size
+
+def fit_width(it, W):
+    """Achica elementos de una sola linea que no caben a lo ancho."""
+    if it["t"] in ("counter", "rich", "pop"):
+        full = W - 2 * MARGIN
+        size = it.get("size", 60)
+        while size > 24 and _measure.textlength(_final_text(it), font=font(it.get("w", 900 if it["t"] != "rich" else 800), size)) > full:
+            size = int(size * 0.92)
+        it["size"] = size
+
+def layout(items, W, H):
+    if any("y" in it for it in items):
+        return items
+    import copy
+    items = copy.deepcopy(items)
+    tall = H > 1500
+    top, bottom = (330, H - 400) if tall else (170, H - 110)
+    for _ in range(8):
+        for it in items:
+            fit_width(it, W)
+        heights = [measure(it, W) for it in items]
+        gaps = [0] + [it.get("gap", max(24, it.get("size", 60) * 0.5)) for it in items[1:]]
+        total = sum(heights) + sum(gaps)
+        if total <= bottom - top:
+            break
+        for it in items:
+            if "size" in it:
+                it["size"] = int(it["size"] * 0.9)
+    y = top + max(0, (bottom - top - total) / 2) * 0.8
+    for it, h, g in zip(items, heights, gaps):
+        y += g
+        it["y"] = int(y + (h / 2 if it["t"] == "pop" else 0))
+        y += h
+    return items
+
+_lay_cache = {}
+def laid(items, W, H):
+    k = (id(items), W, H)
+    if k not in _lay_cache:
+        _lay_cache[k] = layout(items, W, H)
+    return _lay_cache[k]
+
 # ---------- Reel ----------
 
 def reel_frame(spec, t):
@@ -141,7 +221,7 @@ def reel_frame(spec, t):
         if start <= t < start + dur:
             lt = t - start
             last = si == len(scenes) - 1
-            for it in sc["items"]:
+            for it in laid(sc["items"], W, H):
                 at = it.get("at", 0.0)
                 a = ease_out((lt - at) / 0.35)
                 if not last:
@@ -180,7 +260,7 @@ def render_slides(spec, out_prefix):
     W, H = (1080, 1920) if story else (1080, 1350)
     for i, sl in enumerate(slides, 1):
         cv = Canvas(W, H, brand=spec.get("brand", True))
-        for it in sl["items"]:
+        for it in laid(sl["items"], W, H):
             cv.draw(it, 1.0, 0, None)
         if len(slides) > 1 and not story:
             cv.d.text((1080 - MARGIN, 80), f"{i}/{len(slides)}", font=font(700, 30), fill=COLORS["dato"], anchor="ra")
