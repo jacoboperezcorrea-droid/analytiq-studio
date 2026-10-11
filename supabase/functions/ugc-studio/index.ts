@@ -1,6 +1,6 @@
 // Estudio de la agencia UGC de AnalytiQ Core (AnalytiQ UGC).
 // Gemini (imagenes de los modelos) + ElevenLabs (voces) + fal InfiniteTalk (animacion). Registra el costo de cada generacion en ugc_generations.
-// Auth: x-cron-secret. Acciones: image_models | generate | costs | voice_design | voice_save | tts | xi_account | talk_start | talk_status
+// Auth: x-cron-secret. Acciones: image_models | generate | costs | voice_design | voice_save | tts | xi_account | talk_start | talk_status | veo_start | veo_status
 // generate: { slug, step, quality: "prueba" (Flash, por defecto) | "final" (Pro), order_id?, prompts[] | prompt+n, refs[], aspect }
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { decodeBase64, encodeBase64 } from "jsr:@std/encoding@1/base64";
@@ -218,6 +218,60 @@ async function talkStatus(b: any) {
   return { status: "listo", url, cost_usd: cost };
 }
 
+// ---------- Veo (video completo con gestos, desde una foto del modelo) ----------
+async function veoStart(b: any) {
+  const key = await geminiKey();
+  const model = b.model || "veo-3.1-fast-generate-preview";
+  const resolution = b.resolution || "720p";
+  const secs = Number(b.seconds || 8);
+  let image = b.image_url;
+  if (!image && b.slug) { const { data } = await sb.from("ugc_models").select("photos").eq("slug", b.slug).single(); image = data?.photos?.para_animar; }
+  const instance: any = { prompt: b.prompt };
+  if (image) { const p = await refPart(image); instance.image = { bytesBase64Encoded: p.inlineData.data, mimeType: p.inlineData.mimeType }; }
+  const parameters: any = { aspectRatio: b.aspect || "9:16", resolution, durationSeconds: secs, personGeneration: "allow_adult" };
+  if (b.negative) parameters.negativePrompt = b.negative;
+  const r = await fetch(`${API}/models/${model}:predictLongRunning`, {
+    method: "POST", headers: { "x-goog-api-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ instances: [instance], parameters }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error("Veo: " + (j.error?.message || r.status));
+  const tag = `${model}@${resolution}`;
+  const { data, error } = await sb.from("ugc_generations").insert({
+    order_id: b.order_id || null, model_slug: b.slug || null, step: b.step || "veo", quality: model.includes("fast") || model.includes("lite") ? "prueba" : "final",
+    provider: "gemini", ai_model: tag, kind: "video", units: secs, cost_usd: 0, ok: false, status: "procesando",
+    external_id: j.name, meta: { image, parameters }, prompt: b.prompt,
+  }).select("id").single();
+  if (error) throw new Error("registro: " + error.message);
+  return { generation_id: data.id, operation: j.name };
+}
+
+async function veoStatus(b: any) {
+  const key = await geminiKey();
+  const { data: g } = await sb.from("ugc_generations").select("*").eq("id", b.generation_id).single();
+  if (!g) throw new Error("No existe esa generacion");
+  if (g.status === "listo") return { status: "listo", url: g.url, cost_usd: g.cost_usd };
+  const r = await fetch(`${API}/${g.external_id}`, { headers: { "x-goog-api-key": key } });
+  const j = await r.json();
+  if (!r.ok) throw new Error("Veo op: " + (j.error?.message || r.status));
+  if (!j.done) return { status: "procesando" };
+  const resp = j.response?.generateVideoResponse || j.response || {};
+  const uri = (resp.generatedSamples || resp.generatedVideos || [])[0]?.video?.uri;
+  if (j.error || !uri) {
+    const err = j.error?.message || "Veo no devolvio video (posible filtro): " + JSON.stringify(resp).slice(0, 300);
+    await sb.from("ugc_generations").update({ status: "error", error: err }).eq("id", g.id);
+    return { status: "error", error: err };
+  }
+  const v = await fetch(uri, { headers: { "x-goog-api-key": key }, redirect: "follow" });
+  if (!v.ok) throw new Error("Descarga video: " + v.status);
+  const file = `ugc/videos/${g.model_slug || "modelo"}_${g.step}_${Date.now()}.mp4`;
+  await sb.storage.from(BUCKET).upload(file, new Uint8Array(await v.arrayBuffer()), { contentType: "video/mp4", upsert: true });
+  const url = sb.storage.from(BUCKET).getPublicUrl(file).data.publicUrl;
+  const { data: p } = await sb.from("ugc_prices").select("usd_per_unit").eq("provider", "gemini").eq("ai_model", g.ai_model).eq("unit", "second").maybeSingle();
+  const cost = Number((Number(g.units) * Number(p?.usd_per_unit || 0)).toFixed(4));
+  await sb.from("ugc_generations").update({ status: "listo", ok: true, url, cost_usd: cost }).eq("id", g.id);
+  return { status: "listo", url, cost_usd: cost };
+}
+
 Deno.serve(async (req) => {
   try {
     const cron = req.headers.get("x-cron-secret");
@@ -230,6 +284,8 @@ Deno.serve(async (req) => {
     else if (b.action === "tts") result = await tts(b);
     else if (b.action === "talk_start") result = await talkStart(b);
     else if (b.action === "talk_status") result = await talkStatus(b);
+    else if (b.action === "veo_start") result = await veoStart(b);
+    else if (b.action === "veo_status") result = await veoStatus(b);
     else if (b.action === "xi_account") result = await xiAccount();
     else if (b.action === "image_models") result = await imageModels(await geminiKey());
     else if (b.action === "generate") result = await generate(await geminiKey(), b);
