@@ -3,6 +3,7 @@
 Convierte una especificacion JSON en piezas de marca:
   - reel: video vertical 1080x1920 con textos animados
   - carousel / post: PNG 1080x1350
+  - story: PNG 1080x1920 (una imagen por slide)
 
 Elementos soportados en cada escena o slide (campo "t"):
   text    texto con ajuste de linea automatico
@@ -175,11 +176,13 @@ def render_reel(spec, out_mp4, fps=30):
 def render_slides(spec, out_prefix):
     outs = []
     slides = spec["slides"]
+    story = spec.get("kind") == "story"
+    W, H = (1080, 1920) if story else (1080, 1350)
     for i, sl in enumerate(slides, 1):
-        cv = Canvas(1080, 1350, brand=spec.get("brand", True))
+        cv = Canvas(W, H, brand=spec.get("brand", True))
         for it in sl["items"]:
             cv.draw(it, 1.0, 0, None)
-        if len(slides) > 1:
+        if len(slides) > 1 and not story:
             cv.d.text((1080 - MARGIN, 80), f"{i}/{len(slides)}", font=font(700, 30), fill=COLORS["dato"], anchor="ra")
         path = f"{out_prefix}_{i:02d}.png"
         cv.im.save(path)

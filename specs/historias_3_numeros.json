@@ -1,0 +1,85 @@
+{
+ "kind": "story",
+ "title": "Historias: 3 números",
+ "slides": [
+  {
+   "items": [
+    {
+     "t": "text",
+     "text": "Pregunta rápida:",
+     "y": 520,
+     "size": 56,
+     "w": 700,
+     "color": "dato",
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "¿Sabes cuánto te queda de cada $100.000 que vendes?",
+     "y": 620,
+     "size": 92,
+     "w": 900,
+     "color": "white",
+     "x": "L",
+     "lh": 1.15
+    },
+    {
+     "t": "text",
+     "text": "Si dudaste, el post de hoy es para ti.",
+     "y": 1150,
+     "size": 48,
+     "w": 500,
+     "color": "white",
+     "x": "L"
+    }
+   ]
+  },
+  {
+   "items": [
+    {
+     "t": "text",
+     "text": "3 números",
+     "y": 560,
+     "size": 120,
+     "w": 900,
+     "color": "white",
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "que todo negocio debe saber.",
+     "y": 710,
+     "size": 72,
+     "w": 900,
+     "color": "dato",
+     "x": "L",
+     "lh": 1.15
+    },
+    {
+     "t": "box",
+     "y": 1000,
+     "height": 200,
+     "color": "dato"
+    },
+    {
+     "t": "text",
+     "text": "Lo tienes en el feed",
+     "y": 1060,
+     "size": 52,
+     "w": 800,
+     "color": "white",
+     "x": "C"
+    },
+    {
+     "t": "text",
+     "text": "AnalytiQ Core",
+     "y": 1500,
+     "size": 48,
+     "w": 700,
+     "color": "dato",
+     "x": "C"
+    }
+   ]
+  }
+ ]
+}
