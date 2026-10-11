@@ -1,0 +1,340 @@
+// Director de la agencia UGC (AnalytiQ UGC).
+// Convierte cada pedido de la Torre de control (ugc_requests) en un video terminado:
+//   nuevo -> guion con la API de Claude Console -> clips de Veo con la modelo (ugc-studio)
+//   -> spec de edicion (cortes rapidos, zoom de golpe, 1.1x, textos, celular con la app o foto del producto)
+//   -> render en GitHub Actions (analytiq-studio) -> aprobacion en la Torre con el link del video.
+// Tambien hace de puente: una pieza aprobada en la Torre pasa al calendario de redes (AnalytiQ).
+// Acciones: tick (por defecto) | plan (solo guion, para probar) | bridge
+// Auth: x-cron-secret = hallazgo_cron_secret
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
+import { encodeBase64 } from "jsr:@std/encoding@1/base64";
+
+const AQ = "c6e4b4ac-8904-458e-aa70-a8b348269fe9";
+const HZ = "dbd5de2f-ca0d-47cb-b5cb-92b3c74fdf6f";
+const NEGOCIO: Record<string, string> = { [AQ]: "AnalytiQ Core", [HZ]: "Hallazgo" };
+const BASE = Deno.env.get("SUPABASE_URL")!;
+const MODEL = "claude-sonnet-5-5";
+const GH_REPO = "jacoboperezcorrea-droid/analytiq-studio";
+const GH_REF = "main";
+// Solo se pasan al calendario las piezas aprobadas desde que existe el puente
+const BRIDGE_SINCE = "2026-10-11T18:30:00Z";
+const sb = createClient(BASE, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
+
+async function hsecret(n: string) { const { data } = await sb.rpc("com_get_secret", { p_name: n }); return data as string | null; }
+async function asecret(n: string) { const { data } = await sb.rpc("analytiq_get_secret", { p_name: n }); return data as string | null; }
+
+async function callFn(fn: string, body: unknown) {
+  const r = await fetch(`${BASE}/functions/v1/${fn}`, {
+    method: "POST", headers: { "Content-Type": "application/json", "x-cron-secret": (await hsecret("hallazgo_cron_secret"))! },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!j.ok) throw new Error(`${fn}: ${j.error || r.status}`);
+  return j.result;
+}
+async function setReq(id: string, f: Record<string, unknown>) {
+  await sb.from("ugc_requests").update({ ...f, updated_at: new Date().toISOString() }).eq("id", id);
+}
+
+// ---------- Plan de cada duracion ----------
+// Cada clip de Veo se acelera a 1.1x y se parte en cortes de ~2.3 s con zoom de golpe alterno.
+type Cut = { start: number; dur: number };
+const CUTS8: Cut[] = [{ start: 0, dur: 2.35 }, { start: 2.6, dur: 2.35 }, { start: 5.2, dur: 2.3 }];
+const CUTS6: Cut[] = [{ start: 0, dur: 2.6 }, { start: 2.9, dur: 2.6 }];
+const PLAN: Record<number, { clips: number[]; card: number }> = {
+  10: { clips: [8], card: 3.0 },
+  15: { clips: [8, 6], card: 2.8 },
+  30: { clips: [8, 8, 8, 6], card: 3.8 },
+};
+const cutsFor = (secs: number) => (secs === 6 ? CUTS6 : CUTS8);
+
+// ---------- Guion con Claude Console ----------
+const SISTEMA = `Eres el director creativo de una agencia de videos UGC en Medellin. Escribes guiones para una modelo virtual (creada con IA) que habla a la camara del celular como creadora de contenido, en espanol de Colombia, muy expresiva, cercana y con energia, al estilo de un anuncio de colaboracion de creadora con marca.
+
+Reglas:
+- La modelo presenta y recomienda; NO inventes que ella compro o uso el producto ni testimonios falsos, ni cifras que no esten en la informacion del producto.
+- Cada clip es una toma continua de la modelo hablando. Respeta el numero de palabras por clip (mas palabras de la cuenta se cortan).
+- El primer clip arranca con un gancho fuerte en los primeros 2 segundos. El ultimo clip cierra con un llamado a la accion.
+- Escribe los nombres de marca como se pronuncian en espanol dentro de "linea" (ej: "Analític Cor" para AnalytiQ Core) y bien escritos en los textos de pantalla.
+- Textos de pantalla: uno por corte, maximo 5 palabras, que refuercen lo que ella dice en ese momento. "acento": true en maximo 2 textos de todo el video.
+- NUNCA uses guion largo ni guion medio como pausa.
+
+Devuelves SOLO JSON valido, sin markdown:
+{"clips":[{"linea":"lo que dice textual","gesto":"gestos en ingles para el video, ej: counts on her fingers and laughs","textos":[{"texto":"...","acento":false}, ...]}],
+ "cierre":{"titulo":"nombre del producto o marca, corto","subtitulo":"una linea de beneficio","palabra":"PALABRA clave en mayusculas para comentar o escribir"},
+ "caption":"copy para Instagram/Facebook, 3 a 5 lineas, cierra con el llamado a la accion y 4 a 6 hashtags",
+ "music_prompt":"en ingles: pista instrumental de unos 30 s acorde al producto, con ritmo, sin voces"}`;
+
+async function claudeScript(req: any, model: any, plan: { clips: number[] }) {
+  const key = (await asecret("analytiq_anthropic_key")) || (await hsecret("hallazgo_anthropic_key"));
+  if (!key) throw new Error("No hay llave de Claude Console en el Vault");
+  const negocio = NEGOCIO[req.tenant_id] || "la marca";
+  const contacto = req.tenant_id === AQ ? "WhatsApp +57 310 219 7559" : "escribir por DM o comprar en hallazgo.shop con pago contra entrega";
+  const clipsTxt = plan.clips.map((s, i) => `clip ${i + 1}: ${s} segundos, entre ${s === 8 ? "22 y 26" : "15 y 18"} palabras, ${cutsFor(s).length} textos de pantalla`).join("; ");
+  const user = `Marca: ${negocio}. Contacto para el cierre: ${contacto}.
+Modelo: ${model.name}, ${model.age} anos, de ${model.city}. Personalidad: ${model.personality}. Forma de hablar: ${model.speech_style}
+Producto: ${req.product_name}.
+Informacion del producto: ${req.product_info || "sin detalle"}
+Duracion total: ${req.duration} segundos. Clips: ${clipsTxt}.
+Guia del pedido: ${req.guide || "sin guia adicional, usa tu criterio para vender el producto"}`;
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: MODEL, max_tokens: 3000, system: SISTEMA, messages: [{ role: "user", content: user }] }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error("Claude API: " + (j.error?.message || r.status));
+  const txt = (j.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("");
+  const m = txt.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("Claude no devolvio JSON");
+  const out = JSON.parse(m[0].replace(/\s*[—–]\s*/g, ". "));
+  if (!Array.isArray(out.clips) || out.clips.length < plan.clips.length) throw new Error("Guion incompleto");
+  out.clips = out.clips.slice(0, plan.clips.length);
+  // Costo del guion (Sonnet: USD 2 / 10 por millon de tokens de entrada / salida)
+  const u = j.usage || {};
+  const cost = ((u.input_tokens || 0) * 2 + (u.output_tokens || 0) * 10) / 1e6;
+  await sb.from("ugc_generations").insert({ order_id: req.order_id, model_slug: req.model_slug, step: "guion", quality: "final", provider: "anthropic",
+    ai_model: MODEL, kind: "text", units: 1, input_tokens: u.input_tokens, output_tokens: u.output_tokens, cost_usd: Number(cost.toFixed(4)), ok: true, prompt: user.slice(0, 4000) });
+  return out;
+}
+
+function veoPrompt(model: any, linea: string, gesto: string) {
+  return `Vertical selfie video recorded on a phone propped in front of her. The young Colombian woman in the image talks to the camera like a bubbly influencer recording an Instagram story. She starts speaking immediately from the first frame and talks fast with no pauses, very energetic and expressive, in Spanish with a warm Medellín paisa accent, young female voice. She says: "${linea}" While talking she gestures a lot with both hands, ${gesto || "uses her hands to explain"}, raises her eyebrows, smiles and moves her head naturally. Natural real-life UGC look, slight handheld feel, natural room sound, no music, no subtitles, no text on screen.`;
+}
+const NEG = "subtitles, captions, on-screen text, watermark, music, distorted hands, extra fingers, morphing face, slow motion, long pauses, silence at the start";
+
+// ---------- Spec de edicion ----------
+function buildSpec(req: any, script: any, clipUrls: string[], screens: string[]) {
+  const plan = PLAN[req.duration];
+  const edit = req.edit || {};
+  const textos = edit.textos !== false;
+  const overlays: string[] = [];
+  if (edit.celular_app !== false && screens.length) overlays.push(...screens.map((s) => "phone:" + s));
+  else if (edit.foto_producto !== false && req.product_image) overlays.push("photo:" + req.product_image);
+  const scenes: any[] = [];
+  let cutN = 0, ov = 0;
+  const totalCuts = plan.clips.reduce((n, s) => n + cutsFor(s).length, 0);
+  plan.clips.forEach((secs, ci) => {
+    const tx = script.clips[ci]?.textos || [];
+    cutsFor(secs).forEach((c, k) => {
+      const punch = cutN % 2 ? 1.18 : 1.0;
+      // Celular o foto: desde el segundo corte, sin tapar el gancho ni el ultimo corte (cara completa antes del cierre)
+      let over: string | null = null;
+      if (overlays.length && cutN >= 1 && cutN < totalCuts - 1) {
+        if (overlays[0].startsWith("phone:") ? ov < overlays.length : cutN % 2 === 1) over = overlays[Math.min(ov, overlays.length - 1)];
+      }
+      const items: any[] = [];
+      if (over) {
+        const [kind, src] = [over.slice(0, over.indexOf(":")), over.slice(over.indexOf(":") + 1)];
+        items.push({ t: "phone", src, style: kind === "photo" ? "photo" : "phone", w: kind === "photo" ? 600 : 560, x: "C", y: kind === "photo" ? 860 : 880, at: 0.15 });
+        if (kind === "phone") ov++;
+      }
+      const t = tx[k];
+      if (textos && t?.texto) {
+        items.push({ t: "text", text: t.texto, size: t.texto.length > 22 ? 56 : 66, w: 900, color: t.acento ? "orange" : "white", x: "C", y: over ? 1610 : 1480, at: 0.1 });
+      }
+      scenes.push({ dur: c.dur, bg: { clip: ci, start: c.start, scrim: over ? 0.3 : 0.1, zoom: 0.02, punch }, items });
+      cutN++;
+    });
+  });
+  const cierre = script.cierre || {};
+  const contacto = req.tenant_id === AQ ? "o al WhatsApp +57 310 219 7559" : "Pago contra entrega · hallazgo.shop";
+  scenes.push({ dur: plan.card, items: textos ? [
+    { t: "text", text: cierre.titulo || req.product_name, size: 84, w: 900, color: "white", x: "C" },
+    { t: "text", text: cierre.subtitulo || "", size: 50, w: 700, color: "dato", x: "C", at: 0.3 },
+    { t: "rich", parts: [["Escribe ", "white"], [String(cierre.palabra || "INFO").toUpperCase(), "orange"]], size: 64, x: "C", at: 0.7 },
+    { t: "text", text: contacto, size: 44, w: 700, color: "dato", x: "C", at: 1.0 },
+    { t: "text", text: "Presentadora creada con IA", size: 28, w: 500, color: "white", x: "C", at: 1.2 },
+  ] : [{ t: "text", text: "Presentadora creada con IA", size: 28, w: 500, color: "white", x: "C" }] });
+  return {
+    kind: "reel", title: `UGC ${req.model_slug}: ${req.product_name}`, voice: true, voice_model: req.model_slug, speed: 1.1, cover_at: 1.0,
+    brand: req.tenant_id === AQ, ugc_request_id: req.id,
+    clips: clipUrls.map((url) => ({ url })), scenes,
+  };
+}
+
+async function dispatch(jobId: string) {
+  const token = await asecret("analytiq_github_token");
+  if (!token) throw new Error("Falta analytiq_github_token en el Vault");
+  const r = await fetch(`https://api.github.com/repos/${GH_REPO}/actions/workflows/render.yml/dispatches`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "ugc-director", "X-GitHub-Api-Version": "2022-11-28" },
+    body: JSON.stringify({ ref: GH_REF, inputs: { job_id: jobId } }),
+  });
+  if (r.status !== 204) throw new Error(`GitHub ${r.status}: ${(await r.text()).slice(0, 200)}`);
+}
+
+// ---------- Pasos ----------
+async function stepNew(req: any) {
+  const plan = PLAN[req.duration];
+  const { data: model } = await sb.from("ugc_models").select("*").eq("slug", req.model_slug).single();
+  if (!model) throw new Error("No existe la modelo " + req.model_slug);
+  const image = model.look || model.photos?.para_animar;
+  if (!image) throw new Error("La modelo no tiene foto para animar");
+  let orderId = req.order_id;
+  if (!orderId) {
+    const { data: o } = await sb.from("ugc_orders").insert({ model_slug: req.model_slug, title: `${NEGOCIO[req.tenant_id] || ""}: ${req.product_name}`, format: `ugc_${req.duration}s`, price_cop: 0, status: "en_produccion" }).select("id").single();
+    orderId = o!.id; req.order_id = orderId;
+    await setReq(req.id, { order_id: orderId });
+  }
+  // Si un intento anterior ya escribio el guion, se reutiliza (no se paga dos veces)
+  const script = req.script?.clips?.length >= plan.clips.length ? req.script : await claudeScript(req, model, plan);
+  if (script !== req.script) await setReq(req.id, { script });
+  const ids: string[] = [];
+  for (let i = 0; i < plan.clips.length; i++) {
+    const c = script.clips[i];
+    const r = await callFn("ugc-studio", { action: "veo_start", slug: req.model_slug, step: `pedido_${req.id.slice(0, 8)}_c${i + 1}`, seconds: plan.clips[i],
+      resolution: "720p", image_url: image, order_id: orderId, prompt: veoPrompt(model, c.linea, c.gesto), negative: NEG });
+    ids.push(r.generation_id);
+  }
+  await setReq(req.id, { clip_ids: ids, status: "generando", error: null });
+  return { id: req.id, status: "generando", clips: ids.length };
+}
+
+async function stepClips(req: any) {
+  const urls: string[] = [];
+  for (const gid of req.clip_ids || []) {
+    const s = await callFn("ugc-studio", { action: "veo_status", generation_id: gid });
+    if (s.status === "error") throw new Error("Un clip fallo en Veo: " + (s.error || ""));
+    if (s.status !== "listo") return { id: req.id, waiting: true };
+    urls.push(s.url);
+  }
+  let screens: string[] = [];
+  if (req.product_ref) {
+    const { data: p } = await sb.from("ugc_products").select("app_screens").eq("tenant_id", req.tenant_id).eq("ref", req.product_ref).maybeSingle();
+    screens = p?.app_screens || [];
+  }
+  const spec = buildSpec(req, req.script, urls, screens);
+  let music: string | null = null;
+  if ((req.edit || {}).musica !== false) {
+    try { music = (await callFn("analytiq-studio", { action: "music", slug: `ugc-${req.id.slice(0, 8)}`, prompt: req.script.music_prompt || "Upbeat modern Latin pop instrumental, energetic, low background music under a voice, no vocals, 30 seconds." })).url; }
+    catch (_) { music = null; }
+  }
+  const { data: job, error } = await sb.from("analytiq_content_jobs").insert({
+    tenant_id: req.tenant_id, kind: "reel", title: spec.title, caption: req.script.caption, spec, music_url: music, status: "rendering",
+  }).select("id").single();
+  if (error) throw new Error("job: " + error.message);
+  await dispatch(job!.id);
+  await setReq(req.id, { job_id: job!.id, status: "editando" });
+  return { id: req.id, status: "editando", job: job!.id };
+}
+
+async function stepRender(req: any) {
+  const { data: job } = await sb.from("analytiq_content_jobs").select("status,files,approval_id,error").eq("id", req.job_id).single();
+  if (!job) throw new Error("No existe el trabajo de edicion");
+  if (job.status === "error") throw new Error("La edicion fallo: " + (job.error || ""));
+  if (job.status !== "pending_approval" || !job.approval_id) return { id: req.id, waiting: true };
+  const video = (job.files || []).find((f: string) => f.endsWith(".mp4")) || null;
+  const cover = (job.files || []).find((f: string) => f.endsWith(".png")) || null;
+  // El estudio crea la aprobacion en AnalytiQ: se pasa al negocio del pedido y se le agrega el link para revisar
+  const { data: ap } = await sb.from("com_approvals").select("payload").eq("id", job.approval_id).single();
+  const { data: costo } = await sb.from("ugc_generations").select("cost_usd").eq("order_id", req.order_id).eq("ok", true);
+  const usd = (costo || []).reduce((s: number, r: any) => s + Number(r.cost_usd || 0), 0);
+  await sb.from("com_approvals").update({
+    tenant_id: req.tenant_id,
+    title: `Video UGC: ${req.product_name} (${req.duration} s, ${req.model_slug})`,
+    summary: `Revisa el video: ${video}`,
+    payload: { ...(ap?.payload || {}), negocio: NEGOCIO[req.tenant_id], origen: "ugc", ugc_request_id: req.id, video, revisar: video, portada: cover, costo_usd: Number(usd.toFixed(2)) },
+  }).eq("id", job.approval_id);
+  await setReq(req.id, { status: "por_aprobar", video_url: video, cover_url: cover, approval_id: job.approval_id });
+  return { id: req.id, status: "por_aprobar", video };
+}
+
+// Aprobado en la Torre: AnalytiQ pasa al calendario de redes (sale en la siguiente ronda del publicador).
+// Hallazgo publica con su propio motor, que todavia no sube videos: el video queda listo para usar.
+async function bridge() {
+  const { data: aps } = await sb.from("com_approvals").select("*").eq("type", "creative").eq("status", "approved").gte("decided_at", BRIDGE_SINCE).limit(10);
+  const out: any[] = [];
+  for (const ap of aps || []) {
+    const p = ap.payload || {};
+    if (!p.job_id && !p.ugc_request_id) continue;
+    try {
+      if (p.ugc_request_id) await setReq(p.ugc_request_id, { status: "aprobado" });
+      if (ap.tenant_id === AQ && p.job_id) {
+        const { data: job } = await sb.from("analytiq_content_jobs").select("*").eq("id", p.job_id).single();
+        const files: string[] = job?.files || [];
+        const video = files.find((f) => f.endsWith(".mp4"));
+        const media = job?.kind === "reel" ? [video, files.find((f) => f.endsWith(".png"))].filter(Boolean) : files.filter((f) => f.endsWith(".png"));
+        if (!media.length) throw new Error("La pieza no tiene archivos");
+        const when = p.publicar && new Date(p.publicar) > new Date() ? p.publicar : new Date().toISOString();
+        const kind = job.kind === "post" ? (media.length > 1 ? "carousel" : "image") : job.kind;
+        const rows = ["instagram", "facebook"].map((channel) => ({ tenant_id: AQ, channel, kind, caption: job.caption || p.copy || "", hashtags: [], media_urls: media,
+          product_ref: p.ugc_request_id ? `ugc-${String(p.ugc_request_id).slice(0, 8)}` : `job-${String(p.job_id).slice(0, 8)}`, scheduled_at: when, status: "scheduled", created_by: "ugc-director" }));
+        const { error } = await sb.from("com_social_posts").insert(rows);
+        if (error) throw new Error("calendario: " + error.message);
+        await sb.from("analytiq_content_jobs").update({ status: "scheduled", updated_at: new Date().toISOString() }).eq("id", p.job_id);
+        await sb.from("com_approvals").update({ status: "done", payload: { ...p, resultado: `Programado para ${when}` } }).eq("id", ap.id);
+        out.push({ id: ap.id, programado: when });
+      } else {
+        await sb.from("com_approvals").update({ status: "done", payload: { ...p, resultado: "Video aprobado y listo para usar en pauta o redes" } }).eq("id", ap.id);
+        out.push({ id: ap.id, listo: true });
+      }
+    } catch (e) {
+      out.push({ id: ap.id, error: String((e as Error).message) });
+    }
+  }
+  // Rechazados en la Torre
+  const { data: rej } = await sb.from("com_approvals").select("payload").eq("status", "rejected").gte("decided_at", BRIDGE_SINCE).not("payload->ugc_request_id", "is", null).limit(20);
+  for (const r of rej || []) await sb.from("ugc_requests").update({ status: "rechazado" }).eq("id", r.payload.ugc_request_id).eq("status", "por_aprobar");
+  return out;
+}
+
+// Miniatura cuadrada (cara) de cada modelo para las cards circulares de la Torre
+async function thumbs() {
+  const { data } = await sb.from("ugc_models").select("slug,photos,look,thumb").is("thumb", null);
+  const out: string[] = [];
+  for (const m of data || []) {
+    const src = m.photos?.frente_sonrisa || m.look || m.photos?.para_animar;
+    if (!src) continue;
+    const r = await fetch(src);
+    if (!r.ok) continue;
+    const img = await Image.decode(new Uint8Array(await r.arrayBuffer()));
+    const side = Math.min(img.width, Math.round(img.height * 0.55));
+    const x = Math.round((img.width - side) / 2), y = Math.round(img.height * 0.06);
+    img.crop(x, y, side, Math.min(side, img.height - y)).resize(220, 220);
+    const b64 = encodeBase64(await img.encodeJPEG(82));
+    await sb.from("ugc_models").update({ thumb: "data:image/jpeg;base64," + b64 }).eq("slug", m.slug);
+    out.push(m.slug);
+  }
+  return out;
+}
+
+async function tick() {
+  const { data: reqs } = await sb.from("ugc_requests").select("*").in("status", ["nuevo", "generando", "editando"]).lt("attempts", 3).order("created_at").limit(6);
+  const out: any[] = [];
+  for (const req of reqs || []) {
+    try {
+      if (req.status === "nuevo") out.push(await stepNew(req));
+      else if (req.status === "generando") out.push(await stepClips(req));
+      else if (req.status === "editando") out.push(await stepRender(req));
+    } catch (e) {
+      const msg = String((e as Error).message || e).slice(0, 500);
+      const attempts = (req.attempts || 0) + 1;
+      // Si fallo despues del guion, reintenta desde el principio de ese paso
+      await setReq(req.id, { attempts, error: msg, status: attempts >= 3 ? "error" : req.status });
+      out.push({ id: req.id, error: msg });
+    }
+  }
+  let mini: unknown = [];
+  try { mini = await thumbs(); } catch (e) { mini = String((e as Error).message); }
+  return { pedidos: out, puente: await bridge(), miniaturas: mini };
+}
+
+Deno.serve(async (req) => {
+  try {
+    if (req.headers.get("x-cron-secret") !== (await hsecret("hallazgo_cron_secret"))) return json({ error: "unauthorized" }, 401);
+    const b = await req.json().catch(() => ({}));
+    let result: unknown;
+    if (b.action === "bridge") result = await bridge();
+    else if (b.action === "plan") {
+      const { data: r } = await sb.from("ugc_requests").select("*").eq("id", b.id).single();
+      const { data: m } = await sb.from("ugc_models").select("*").eq("slug", r.model_slug).single();
+      result = await claudeScript(r, m, PLAN[r.duration]);
+    } else result = await tick();
+    return json({ ok: true, result });
+  } catch (e) {
+    return json({ ok: false, error: String((e as Error).message || e) }, 500);
+  }
+});

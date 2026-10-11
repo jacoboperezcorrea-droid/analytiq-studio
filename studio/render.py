@@ -87,13 +87,42 @@ def logo(width):
     return _logo_cache[width]
 
 _phone_cache = {}
-def phone_image(src, width):
-    """Celular con bisel negro, esquinas redondeadas y sombra, a partir de una captura de pantalla."""
-    k = (src, width)
+def _local(src):
+    """Ruta local de una imagen: rutas del repo, absolutas o URLs (se descargan una vez)."""
+    if src.startswith("http"):
+        import hashlib, tempfile, urllib.request
+        dst = os.path.join(tempfile.gettempdir(), "studio_" + hashlib.sha1(src.encode()).hexdigest())
+        if not os.path.exists(dst):
+            urllib.request.urlretrieve(src, dst)
+        return dst
+    return src if os.path.isabs(src) else os.path.join(HERE, "..", src)
+
+def phone_image(src, width, style="phone"):
+    """Celular con bisel negro (style=phone) o foto con borde blanco (style=photo), con sombra."""
+    k = (src, width, style)
     if k in _phone_cache:
         return _phone_cache[k]
-    path = src if os.path.isabs(src) else os.path.join(HERE, "..", src)
-    shot = Image.open(path).convert("RGBA")
+    shot = Image.open(_local(src)).convert("RGBA")
+    if style == "photo":
+        shot = shot.resize((width, int(shot.height * width / shot.width)), Image.LANCZOS)
+        if shot.height > width * 1.3:
+            off = (shot.height - int(width * 1.3)) // 2
+            shot = shot.crop((0, off, width, off + int(width * 1.3)))
+        bw, r = max(8, width // 40), width // 14
+        W, H = width + 2 * bw, shot.height + 2 * bw
+        pad = 40
+        out = Image.new("RGBA", (W + 2 * pad, H + 2 * pad), (0, 0, 0, 0))
+        shadow = Image.new("L", out.size, 0)
+        ImageDraw.Draw(shadow).rounded_rectangle((pad + 6, pad + 16, pad + W + 6, pad + H + 16), r, fill=140)
+        out.paste((0, 0, 0, 255), (0, 0), shadow.filter(ImageFilter.GaussianBlur(20)))
+        card = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(card).rounded_rectangle((0, 0, W - 1, H - 1), r, fill=(255, 255, 255, 255))
+        m = Image.new("L", shot.size, 0)
+        ImageDraw.Draw(m).rounded_rectangle((0, 0, shot.width - 1, shot.height - 1), max(4, r - bw), fill=255)
+        card.paste(shot, (bw, bw), m)
+        out.alpha_composite(card, (pad, pad))
+        _phone_cache[k] = out
+        return out
     bezel = max(10, width // 36)
     sw = width - 2 * bezel
     sh = int(shot.height * sw / shot.width)
@@ -177,7 +206,7 @@ class Canvas:
         x, h = self.xpos(it.get("x"))
         y = it.get("y", 0) + dy
         if t == "phone":
-            im = phone_image(it["src"], it.get("w", 540))
+            im = phone_image(it["src"], it.get("w", 540), it.get("style", "phone"))
             if a < 1:
                 im = im.copy(); im.putalpha(im.getchannel("A").point(lambda v: int(v * a)))
             px = (self.w - im.width) // 2 if it.get("x", "C") == "C" else int(it["x"])
