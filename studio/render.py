@@ -48,6 +48,12 @@ def ease_back(x):
 def col(name): return COLORS.get(name, COLORS["white"]) if isinstance(name, str) else tuple(name)
 def mix(c, a): return tuple(int(BG[i] + (c[i] - BG[i]) * a) for i in range(3))
 
+def clean_prefix(it):
+    pre = it.get("prefix", "")
+    if it.get("style", "money") == "money":
+        pre = pre.replace("$", "")
+    return pre
+
 def fmt_number(v, style):
     v = int(round(v))
     s = f"{v:,}".replace(",", ".")
@@ -119,7 +125,7 @@ class Canvas:
         elif t == "counter":
             k = ease_out(local_t / it.get("dur", 1.2)) if local_t is not None else 1.0
             v = it.get("from", 0) + (it["to"] - it.get("from", 0)) * k
-            txt = it.get("prefix", "") + fmt_number(v, it.get("style", "money")) + it.get("suffix", "")
+            txt = clean_prefix(it) + fmt_number(v, it.get("style", "money")) + it.get("suffix", "")
             d.text((x, y), txt, font=font(it.get("w", 900), it.get("size", 120)), fill=c, anchor=h + "a")
         elif t == "pop":
             sc = ease_back(local_t / 0.6) if local_t is not None else 1.0
@@ -146,7 +152,7 @@ _measure = ImageDraw.Draw(Image.new("RGB", (10, 10)))
 
 def _final_text(it):
     if it["t"] == "counter":
-        return it.get("prefix", "") + fmt_number(it["to"], it.get("style", "money")) + it.get("suffix", "")
+        return clean_prefix(it) + fmt_number(it["to"], it.get("style", "money")) + it.get("suffix", "")
     if it["t"] == "rich":
         return "".join(p[0] for p in it["parts"])
     return it.get("text", "")
@@ -182,6 +188,16 @@ def layout(items, W, H):
         return items
     import copy
     items = copy.deepcopy(items)
+    for k, it in enumerate(items):
+        if it["t"] == "rich" and _measure.textlength(_final_text(it), font=font(it.get("w", 800), it.get("size", 54))) > (W - 2 * MARGIN):
+            # Frase demasiado larga para una linea: pasa a texto normal y conserva el acento de color
+            acento = next((c for _, c in it["parts"] if c != "white"), "white")
+            items[k] = {"t": "text", "text": _final_text(it), "size": it.get("size", 54), "w": it.get("w", 800),
+                        "color": acento if len(_final_text(it)) < 40 else "white", "x": it.get("x", "C"), "at": it.get("at", 0)}
+    centrado = sum(1 for it in items if it.get("x") == "C") > len(items) / 2
+    for it in items:
+        if "x" not in it and centrado:
+            it["x"] = "C"
     tall = H > 1500
     top, bottom = (330, H - 400) if tall else (170, H - 110)
     for _ in range(8):
