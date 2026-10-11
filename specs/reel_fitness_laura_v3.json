@@ -1,0 +1,332 @@
+{
+ "kind": "reel",
+ "title": "Laura presenta AnalytiQ Core Fitness (v3)",
+ "voice": true,
+ "voice_model": "laura",
+ "speed": 1.1,
+ "cover_at": 1.0,
+ "clips": [
+  {
+   "url": "https://nhvtrxxaggusvlimavdn.supabase.co/storage/v1/object/public/analytiq-media/ugc/videos/laura_fitness_hook2_1791740591446.mp4"
+  },
+  {
+   "url": "https://nhvtrxxaggusvlimavdn.supabase.co/storage/v1/object/public/analytiq-media/ugc/videos/laura_fitness_app2_1791740591445.mp4"
+  },
+  {
+   "url": "https://nhvtrxxaggusvlimavdn.supabase.co/storage/v1/object/public/analytiq-media/ugc/videos/laura_fitness_cta2_1791740591512.mp4"
+  }
+ ],
+ "scenes": [
+  {
+   "dur": 2.35,
+   "bg": {
+    "clip": 0,
+    "start": 0.0,
+    "scrim": 0.1,
+    "zoom": 0.02,
+    "punch": 1.0
+   },
+   "items": [
+    {
+     "t": "text",
+     "text": "Entrenador:",
+     "size": 68,
+     "w": 900,
+     "color": "dato",
+     "x": "C",
+     "y": 1480,
+     "at": 0.1
+    }
+   ]
+  },
+  {
+   "dur": 2.35,
+   "bg": {
+    "clip": 0,
+    "start": 2.6,
+    "scrim": 0.1,
+    "zoom": 0.02,
+    "punch": 1.18
+   },
+   "items": [
+    {
+     "t": "text",
+     "text": "¿Rutinas por WhatsApp?",
+     "size": 60,
+     "w": 900,
+     "color": "white",
+     "x": "C",
+     "y": 1430,
+     "at": 0.0
+    },
+    {
+     "t": "text",
+     "text": "¿Planes en Excel?",
+     "size": 60,
+     "w": 900,
+     "color": "white",
+     "x": "C",
+     "y": 1520,
+     "at": 0.8
+    }
+   ]
+  },
+  {
+   "dur": 2.3,
+   "bg": {
+    "clip": 0,
+    "start": 5.2,
+    "scrim": 0.1,
+    "zoom": 0.02,
+    "punch": 1.0
+   },
+   "items": [
+    {
+     "t": "pop",
+     "text": "Eso ya no va.",
+     "size": 100,
+     "color": "orange",
+     "x": "C",
+     "y": 1500,
+     "at": 0.1
+    }
+   ]
+  },
+  {
+   "dur": 2.35,
+   "bg": {
+    "clip": 1,
+    "start": 0.0,
+    "scrim": 0.3,
+    "zoom": 0.02,
+    "punch": 1.18
+   },
+   "items": [
+    {
+     "t": "phone",
+     "src": "assets/fitness/app_s1.png",
+     "w": 560,
+     "x": "C",
+     "y": 880,
+     "at": 0.15
+    },
+    {
+     "t": "rich",
+     "parts": [
+      [
+       "Tu app. ",
+       "white"
+      ],
+      [
+       "Tu marca.",
+       "dato"
+      ]
+     ],
+     "size": 74,
+     "x": "C",
+     "y": 1610,
+     "at": 0.3
+    }
+   ]
+  },
+  {
+   "dur": 2.35,
+   "bg": {
+    "clip": 1,
+    "start": 2.6,
+    "scrim": 0.3,
+    "zoom": 0.02,
+    "punch": 1.0
+   },
+   "items": [
+    {
+     "t": "phone",
+     "src": "assets/fitness/app_s2.png",
+     "w": 560,
+     "x": "C",
+     "y": 880,
+     "at": 0.15
+    },
+    {
+     "t": "text",
+     "text": "Comidas con sus macros",
+     "size": 62,
+     "w": 900,
+     "color": "white",
+     "x": "C",
+     "y": 1610,
+     "at": 0.3
+    }
+   ]
+  },
+  {
+   "dur": 2.3,
+   "bg": {
+    "clip": 1,
+    "start": 5.2,
+    "scrim": 0.3,
+    "zoom": 0.02,
+    "punch": 1.18
+   },
+   "items": [
+    {
+     "t": "phone",
+     "src": "assets/fitness/app_s3.png",
+     "w": 560,
+     "x": "C",
+     "y": 880,
+     "at": 0.15
+    },
+    {
+     "t": "text",
+     "text": "Registro de pesos en cada sesión",
+     "size": 56,
+     "w": 900,
+     "color": "white",
+     "x": "C",
+     "y": 1610,
+     "at": 0.3
+    }
+   ]
+  },
+  {
+   "dur": 2.35,
+   "bg": {
+    "clip": 2,
+    "start": 0.0,
+    "scrim": 0.3,
+    "zoom": 0.02,
+    "punch": 1.0
+   },
+   "items": [
+    {
+     "t": "phone",
+     "src": "assets/fitness/app_s4.png",
+     "w": 560,
+     "x": "C",
+     "y": 880,
+     "at": 0.15,
+     "hold": true
+    },
+    {
+     "t": "text",
+     "text": "Ves quién cumple",
+     "size": 66,
+     "w": 900,
+     "color": "white",
+     "x": "C",
+     "y": 1610,
+     "at": 0.3
+    }
+   ]
+  },
+  {
+   "dur": 2.35,
+   "bg": {
+    "clip": 2,
+    "start": 2.6,
+    "scrim": 0.3,
+    "zoom": 0.02,
+    "punch": 1.18
+   },
+   "items": [
+    {
+     "t": "phone",
+     "src": "assets/fitness/app_s4.png",
+     "w": 560,
+     "x": "C",
+     "y": 880,
+     "at": -1
+    },
+    {
+     "t": "text",
+     "text": "y quién no.",
+     "size": 74,
+     "w": 900,
+     "color": "dato",
+     "x": "C",
+     "y": 1610,
+     "at": 0.1
+    }
+   ]
+  },
+  {
+   "dur": 2.3,
+   "bg": {
+    "clip": 2,
+    "start": 5.2,
+    "scrim": 0.1,
+    "zoom": 0.02,
+    "punch": 1.0
+   },
+   "items": [
+    {
+     "t": "text",
+     "text": "Con tu logo y tus colores",
+     "size": 60,
+     "w": 900,
+     "color": "white",
+     "x": "C",
+     "y": 1480,
+     "at": 0.1
+    }
+   ]
+  },
+  {
+   "dur": 4.0,
+   "items": [
+    {
+     "t": "text",
+     "text": "AnalytiQ Core Fitness",
+     "size": 84,
+     "w": 900,
+     "color": "white",
+     "x": "C"
+    },
+    {
+     "t": "text",
+     "text": "La app para entrenadores con tu marca",
+     "size": 50,
+     "w": 700,
+     "color": "dato",
+     "x": "C",
+     "at": 0.3
+    },
+    {
+     "t": "rich",
+     "parts": [
+      [
+       "Escribe ",
+       "white"
+      ],
+      [
+       "FITNESS",
+       "orange"
+      ]
+     ],
+     "size": 64,
+     "x": "C",
+     "at": 0.7
+    },
+    {
+     "t": "text",
+     "text": "o al WhatsApp +57 310 219 7559",
+     "size": 46,
+     "w": 700,
+     "color": "dato",
+     "x": "C",
+     "at": 1.0
+    },
+    {
+     "t": "text",
+     "text": "Presentadora creada con IA",
+     "size": 28,
+     "w": 500,
+     "color": "white",
+     "x": "C",
+     "at": 1.3
+    }
+   ]
+  }
+ ]
+}

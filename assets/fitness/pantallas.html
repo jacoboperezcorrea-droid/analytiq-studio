@@ -1,0 +1,130 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Anton;src:url(node_modules/@fontsource/anton/files/anton-latin-400-normal.woff2)}
+@font-face{font-family:Barlow;font-weight:400;src:url(node_modules/@fontsource/barlow/files/barlow-latin-400-normal.woff2)}
+@font-face{font-family:Barlow;font-weight:600;src:url(node_modules/@fontsource/barlow/files/barlow-latin-600-normal.woff2)}
+@font-face{font-family:Barlow;font-weight:700;src:url(node_modules/@fontsource/barlow/files/barlow-latin-700-normal.woff2)}
+@font-face{font-family:"Barlow Condensed";font-weight:700;src:url(node_modules/@fontsource/barlow-condensed/files/barlow-condensed-latin-700-normal.woff2)}
+:root{--bg:#F4F3F2;--surface:#fff;--sunk:#ECEAE8;--ink:#111;--muted:#66615E;--line:#DCD8D5;--hdr:#0D0D0D;
+ --accent:#E2177A;--accent-soft:#FCE3EF;--ok:#17804F;--ok-soft:#E1F3EA;--warn:#A45F00;--warn-soft:#FBEEDB;--bad:#C62828;--bad-soft:#FBE4E4;
+ --m-p:#D0141C;--m-f:#0F8A74;--m-c:#2F6FD6;--pull:#2F55D4}
+*{box-sizing:border-box;margin:0}
+body{background:#888;font-family:Barlow,sans-serif;color:var(--ink)}
+.screen{width:390px;height:844px;background:var(--bg);overflow:hidden;position:relative;display:none}
+.screen.on{display:block}
+.status{height:44px;background:var(--hdr);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-weight:600;font-size:14px}
+.hdr{background:var(--hdr);color:#fff;padding:6px 18px 16px;display:flex;align-items:center;gap:12px}
+.mark{width:42px;height:42px;border-radius:12px;background:var(--accent);display:grid;place-items:center;font-family:Anton;font-size:20px;color:#fff}
+.bt b{font-family:Anton;font-weight:400;font-size:18px;letter-spacing:.03em;text-transform:uppercase;display:block;line-height:1}
+.bt small{font-family:"Barlow Condensed";font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9A9490}
+.wrap{padding:16px;display:grid;gap:12px}
+.eyebrow{font-family:"Barlow Condensed";font-weight:700;text-transform:uppercase;letter-spacing:.1em;font-size:12px;color:var(--muted)}
+.h1{font-family:Anton;font-weight:400;font-size:34px;line-height:1;text-transform:uppercase}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.ex{display:flex;gap:12px;align-items:center}
+.thumb{width:52px;height:52px;border-radius:10px;background:var(--sunk);display:grid;place-items:center;font-size:24px}
+.ex h3{font-size:16px;font-weight:700}
+.ex p{font-size:13px;color:var(--muted)}
+.chk{margin-left:auto;width:28px;height:28px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:15px;color:#fff}
+.chk.done{background:var(--ok);border-color:var(--ok)}
+.pill{display:inline-block;font-family:"Barlow Condensed";font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;border-radius:99px;padding:3px 10px}
+.prog{height:8px;border-radius:9px;background:var(--sunk);overflow:hidden}
+.prog i{display:block;height:100%;border-radius:9px}
+.row{display:flex;justify-content:space-between;align-items:baseline}
+.big{font-family:Anton;font-size:28px}
+.btn{background:var(--accent);color:#fff;border-radius:12px;padding:14px;text-align:center;font-weight:700;font-size:16px}
+.tab{position:absolute;bottom:0;left:0;right:0;height:70px;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:center;font-size:11px;color:var(--muted);font-weight:600}
+.tab div{display:grid;place-items:center;gap:2px}.tab .on{color:var(--accent)}
+.tab span{font-size:20px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:7px 4px;text-align:center;border-bottom:1px solid var(--line)}
+th{font-family:"Barlow Condensed";font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.up{color:var(--ok);font-weight:700}
+.stu{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.av{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff}
+.stu b{font-size:15px}.stu small{display:block;font-size:12px;color:var(--muted)}
+.stu .pill{margin-left:auto}
+</style></head><body>
+
+<!-- 1. Rutina del dia -->
+<div class="screen" id="s1">
+ <div class="status"><span>7:42</span><span>●●● 87%</span></div>
+ <div class="hdr"><div class="mark">S</div><div class="bt"><b>Sara Fit</b><small>Tu entrenadora</small></div></div>
+ <div class="wrap">
+  <div><div class="eyebrow">Hoy · Día 2 · Pull</div><div class="h1">Espalda y bíceps</div></div>
+  <div class="card"><div class="row"><span class="eyebrow">Progreso de hoy</span><b>3 / 5</b></div><div class="prog" style="margin-top:8px"><i style="width:60%;background:var(--accent)"></i></div></div>
+  <div class="card ex"><div class="thumb">🏋️</div><div><h3>Jalón al pecho</h3><p>4 × 10 · 45 kg</p></div><div class="chk done">✓</div></div>
+  <div class="card ex"><div class="thumb">💪</div><div><h3>Remo con barra</h3><p>4 × 8 · 40 kg</p></div><div class="chk done">✓</div></div>
+  <div class="card ex"><div class="thumb">🔁</div><div><h3>Remo en polea</h3><p>3 × 12 · 35 kg</p></div><div class="chk done">✓</div></div>
+  <div class="card ex"><div class="thumb">💪</div><div><h3>Curl con mancuerna</h3><p>3 × 12 · 10 kg</p></div><div class="chk"></div></div>
+  <div class="card ex"><div class="thumb">🔥</div><div><h3>Cardio post entreno</h3><p>25 min · elíptica</p></div><div class="chk"></div></div>
+ </div>
+ <div class="tab"><div class="on"><span>🏋️</span>Rutina</div><div><span>🍽️</span>Comidas</div><div><span>📈</span>Progreso</div><div><span>💬</span>Coach</div></div>
+</div>
+
+<!-- 2. Comidas con macros -->
+<div class="screen" id="s2">
+ <div class="status"><span>12:15</span><span>●●● 74%</span></div>
+ <div class="hdr"><div class="mark">S</div><div class="bt"><b>Sara Fit</b><small>Tu plan de comidas</small></div></div>
+ <div class="wrap">
+  <div><div class="eyebrow">Hoy · Plan de 1.850 kcal</div><div class="h1">Tus macros</div></div>
+  <div class="card" style="display:grid;gap:12px">
+   <div><div class="row"><b>Proteína</b><span class="num">118 / 150 g</span></div><div class="prog"><i style="width:79%;background:var(--m-p)"></i></div></div>
+   <div><div class="row"><b>Grasas</b><span>42 / 60 g</span></div><div class="prog"><i style="width:70%;background:var(--m-f)"></i></div></div>
+   <div><div class="row"><b>Carbohidratos</b><span>140 / 190 g</span></div><div class="prog"><i style="width:74%;background:var(--m-c)"></i></div></div>
+  </div>
+  <div class="card ex"><div class="thumb">🍳</div><div><h3>Desayuno</h3><p>3 huevos · arepa · aguacate</p></div><div class="chk done">✓</div></div>
+  <div class="card ex"><div class="thumb">🍗</div><div><h3>Almuerzo</h3><p>180 g pollo · 150 g arroz · ensalada</p></div><div class="chk done">✓</div></div>
+  <div class="card ex"><div class="thumb">🥤</div><div><h3>Merienda</h3><p>Yogur griego · banano</p></div><div class="chk"></div></div>
+  <div class="card ex"><div class="thumb">🐟</div><div><h3>Cena</h3><p>160 g tilapia · papa · verduras</p></div><div class="chk"></div></div>
+ </div>
+ <div class="tab"><div><span>🏋️</span>Rutina</div><div class="on"><span>🍽️</span>Comidas</div><div><span>📈</span>Progreso</div><div><span>💬</span>Coach</div></div>
+</div>
+
+<!-- 3. Registro de pesos -->
+<div class="screen" id="s3">
+ <div class="status"><span>7:58</span><span>●●● 83%</span></div>
+ <div class="hdr"><div class="mark">S</div><div class="bt"><b>Sara Fit</b><small>Registro de la sesión</small></div></div>
+ <div class="wrap">
+  <div><div class="eyebrow">Ejercicio 2 de 5</div><div class="h1">Remo con barra</div></div>
+  <div class="card">
+   <table><tr><th>Serie</th><th>Semana pasada</th><th>Hoy</th></tr>
+    <tr><td>1</td><td>37,5 kg × 8</td><td><b>40 kg × 8</b></td></tr>
+    <tr><td>2</td><td>37,5 kg × 8</td><td><b>40 kg × 8</b></td></tr>
+    <tr><td>3</td><td>37,5 kg × 7</td><td><b>40 kg × 8</b></td></tr>
+    <tr><td>4</td><td>35 kg × 8</td><td><b>40 kg × 7</b></td></tr></table>
+  </div>
+  <div class="card" style="background:var(--ok-soft);border-color:transparent"><div class="row"><b style="color:var(--ok)">Sobrecarga progresiva</b><span class="up">+2,5 kg ↑</span></div><p style="font-size:13px;color:var(--muted);margin-top:4px">Subiste peso frente a tu última sesión. ¡Así se hace!</p></div>
+  <div class="card"><div class="eyebrow">Últimas 6 semanas</div>
+   <svg viewBox="0 0 320 110" width="100%" style="margin-top:8px"><polyline fill="none" stroke="#E2177A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="10,95 70,85 130,78 190,62 250,48 310,30"/>
+   <g fill="#E2177A"><circle cx="10" cy="95" r="5"/><circle cx="70" cy="85" r="5"/><circle cx="130" cy="78" r="5"/><circle cx="190" cy="62" r="5"/><circle cx="250" cy="48" r="5"/><circle cx="310" cy="30" r="6"/></g></svg>
+  </div>
+  <div class="btn">Guardar y seguir</div>
+ </div>
+ <div class="tab"><div class="on"><span>🏋️</span>Rutina</div><div><span>🍽️</span>Comidas</div><div><span>📈</span>Progreso</div><div><span>💬</span>Coach</div></div>
+</div>
+
+<!-- 4. Panel del entrenador -->
+<div class="screen" id="s4">
+ <div class="status"><span>9:05</span><span>●●● 91%</span></div>
+ <div class="hdr"><div class="mark">S</div><div class="bt"><b>Sara Fit</b><small>Panel de entrenadora</small></div></div>
+ <div class="wrap">
+  <div><div class="eyebrow">Esta semana</div><div class="h1">Tus alumnos</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+   <div class="card" style="padding:10px"><div class="eyebrow">Cumpliendo</div><div class="big" style="color:var(--ok)">9</div></div>
+   <div class="card" style="padding:10px"><div class="eyebrow">En riesgo</div><div class="big" style="color:var(--warn)">2</div></div>
+   <div class="card" style="padding:10px"><div class="eyebrow">Inactivos</div><div class="big" style="color:var(--bad)">1</div></div>
+  </div>
+  <div class="card" style="padding:4px 14px">
+   <div class="stu"><div class="av" style="background:#2F55D4">MV</div><div><b>Mariana V.</b><small>5/5 entrenos · dieta 92%</small></div><span class="pill" style="background:var(--ok-soft);color:var(--ok)">Cumple</span></div>
+   <div class="stu"><div class="av" style="background:#0F7A50">JR</div><div><b>Juan R.</b><small>4/4 entrenos · +5 kg en sentadilla</small></div><span class="pill" style="background:var(--ok-soft);color:var(--ok)">Cumple</span></div>
+   <div class="stu"><div class="av" style="background:#B86E00">CA</div><div><b>Camila A.</b><small>2/5 entrenos · dieta 60%</small></div><span class="pill" style="background:var(--warn-soft);color:var(--warn)">En riesgo</span></div>
+   <div class="stu"><div class="av" style="background:#6B3FD1">DP</div><div><b>Daniel P.</b><small>4/5 entrenos · dieta 85%</small></div><span class="pill" style="background:var(--ok-soft);color:var(--ok)">Cumple</span></div>
+   <div class="stu" style="border:0"><div class="av" style="background:#C62828">SL</div><div><b>Sofía L.</b><small>Sin entrenar hace 6 días</small></div><span class="pill" style="background:var(--bad-soft);color:var(--bad)">Inactivo</span></div>
+  </div>
+  <div class="btn">Escribirle a los que van en riesgo</div>
+ </div>
+ <div class="tab"><div class="on"><span>👥</span>Alumnos</div><div><span>📋</span>Rutinas</div><div><span>🎨</span>Mi marca</div><div><span>⚙️</span>Ajustes</div></div>
+</div>
+</body></html>

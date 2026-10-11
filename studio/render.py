@@ -13,11 +13,12 @@ Elementos soportados en cada escena o slide (campo "t"):
   bar     barra horizontal proporcional (frac 0..1)
   line    linea divisoria
   box     recuadro con borde
+  phone   celular flotando con una pantalla  src="assets/.../pantalla.png", w=ancho del celular, y=centro
 Posiciones: x = "L" (izquierda), "C" (centro), "R" (derecha) o un numero; y en pixeles.
 Tiempos (solo reel): "at" = segundo dentro de la escena en que aparece el elemento.
 """
 import math, os, subprocess
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FONT = os.path.join(HERE, "..", "fonts", "montserrat-latin-{}-normal.woff")
@@ -85,6 +86,35 @@ def logo(width):
         _logo_cache[width] = im.resize((width, int(im.height * width / im.width)), Image.LANCZOS)
     return _logo_cache[width]
 
+_phone_cache = {}
+def phone_image(src, width):
+    """Celular con bisel negro, esquinas redondeadas y sombra, a partir de una captura de pantalla."""
+    k = (src, width)
+    if k in _phone_cache:
+        return _phone_cache[k]
+    path = src if os.path.isabs(src) else os.path.join(HERE, "..", src)
+    shot = Image.open(path).convert("RGBA")
+    bezel = max(10, width // 36)
+    sw = width - 2 * bezel
+    sh = int(shot.height * sw / shot.width)
+    shot = shot.resize((sw, sh), Image.LANCZOS)
+    r_out, r_in = width // 7, width // 7 - bezel
+    m_in = Image.new("L", (sw, sh), 0)
+    ImageDraw.Draw(m_in).rounded_rectangle((0, 0, sw - 1, sh - 1), r_in, fill=255)
+    W, H = width, sh + 2 * bezel
+    pad = 40
+    out = Image.new("RGBA", (W + 2 * pad, H + 2 * pad), (0, 0, 0, 0))
+    shadow = Image.new("L", out.size, 0)
+    ImageDraw.Draw(shadow).rounded_rectangle((pad + 6, pad + 18, pad + W + 6, pad + H + 18), r_out, fill=150)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(22))
+    out.paste((0, 0, 0, 255), (0, 0), shadow)
+    body = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(body).rounded_rectangle((0, 0, W - 1, H - 1), r_out, fill=(18, 18, 20, 255), outline=(70, 70, 76, 255), width=3)
+    body.paste(shot, (bezel, bezel), m_in)
+    out.alpha_composite(body, (pad, pad))
+    _phone_cache[k] = out
+    return out
+
 class Canvas:
     def __init__(self, w, h, brand=True, grid_offset=0.0, bg=None):
         self.w, self.h = w, h
@@ -146,6 +176,17 @@ class Canvas:
         d, t = self.d, it["t"]
         x, h = self.xpos(it.get("x"))
         y = it.get("y", 0) + dy
+        if t == "phone":
+            im = phone_image(it["src"], it.get("w", 540))
+            if a < 1:
+                im = im.copy(); im.putalpha(im.getchannel("A").point(lambda v: int(v * a)))
+            px = (self.w - im.width) // 2 if it.get("x", "C") == "C" else int(it["x"])
+            py = int(it.get("y", self.h // 2) - im.height / 2 + (1 - a) * 160)
+            if self.layer is not None:
+                self.layer.alpha_composite(im, (max(0, px), max(0, py)))
+            else:
+                self.im.paste(im, (px, py), im)
+            return
         c = self.paint(col(it.get("color", "white")), a)
         if t == "text":
             f = font(it.get("w", 700), it.get("size", 60))
@@ -290,9 +331,9 @@ def reel_frame(spec, t, bg=None):
     for it in laid(sc["items"], W, H):
         at = it.get("at", 0.0)
         a = ease_out((lt - at) / 0.35)
-        if not last:
+        if not last and not it.get("hold"):
             a *= 1 - ease_out((lt - (dur - 0.3)) / 0.3)
-        dy = 0 if it["t"] in ("pop", "bar", "line") else (1 - ease_out((lt - at) / 0.35)) * 40
+        dy = 0 if it["t"] in ("pop", "bar", "line", "phone") else (1 - ease_out((lt - at) / 0.35)) * 40
         cv.draw(it, a, dy, lt - at)
     im = cv.final()
     total = sum(s["dur"] for s in spec["scenes"])
