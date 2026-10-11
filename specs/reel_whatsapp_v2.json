@@ -1,0 +1,229 @@
+{
+ "kind": "reel",
+ "title": "Prueba formato nuevo: WhatsApp 11 p. m.",
+ "cover_at": 1.5,
+ "clips": [
+  {
+   "url": "https://nhvtrxxaggusvlimavdn.supabase.co/storage/v1/object/public/analytiq-media/jobs/16a09568-0f1c-4b0b-bdd4-4f94812b3ba2/clip.mp4"
+  },
+  {
+   "prompt": "Vertical 9:16 cinematic handheld shot inside a busy small coffee shop in Medellin in the morning, the owner behind the counter calmly hands a coffee to a smiling customer while a smartphone on the counter lights up with notifications, warm natural light, shallow depth of field, realistic, no readable text, no logos, no faces in close-up"
+  },
+  {
+   "prompt": "Vertical 9:16 cinematic slow dolly shot of a modern small business at night in Medellin, a laptop and a smartphone on a desk glowing with soft blue light, city lights blurred through the window, calm and confident mood, realistic, no readable text on screens, no logos, no people in close-up"
+  }
+ ],
+ "scenes": [
+  {
+   "dur": 3.8,
+   "bg": {
+    "clip": 0,
+    "start": 0
+   },
+   "items": [
+    {
+     "t": "text",
+     "text": "Son las 11:07 p. m.",
+     "size": 60,
+     "w": 700,
+     "color": "dato",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Un cliente te escribe:",
+     "size": 64,
+     "w": 800,
+     "color": "white",
+     "at": 0.4,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Hola, ¿tienen disponible para mañana? ¿Qué precio tiene?",
+     "size": 46,
+     "w": 500,
+     "color": "white",
+     "at": 1.1,
+     "x": "L",
+     "boxed": true,
+     "lh": 1.25
+    }
+   ]
+  },
+  {
+   "dur": 3.4,
+   "bg": {
+    "clip": 0,
+    "start": 4
+   },
+   "items": [
+    {
+     "t": "text",
+     "text": "Tú estás dormido.",
+     "size": 104,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Tu competencia no.",
+     "size": 96,
+     "w": 900,
+     "color": "dato",
+     "at": 1.0,
+     "x": "L"
+    }
+   ]
+  },
+  {
+   "dur": 4.4,
+   "bg": {
+    "clip": 1,
+    "start": 0
+   },
+   "items": [
+    {
+     "t": "text",
+     "text": "Su WhatsApp:",
+     "size": 60,
+     "w": 700,
+     "color": "dato",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Respondió en 3 segundos.",
+     "size": 56,
+     "w": 800,
+     "color": "white",
+     "at": 0.5,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Le mandó precios y fotos.",
+     "size": 56,
+     "w": 800,
+     "color": "white",
+     "at": 1.3,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Le agendó la cita.",
+     "size": 56,
+     "w": 800,
+     "color": "white",
+     "at": 2.1,
+     "x": "L"
+    }
+   ]
+  },
+  {
+   "dur": 3.6,
+   "bg": {
+    "clip": 1,
+    "start": 4
+   },
+   "items": [
+    {
+     "t": "text",
+     "text": "A las 8 a. m.",
+     "size": 64,
+     "w": 700,
+     "color": "dato",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "ese cliente ya compró.",
+     "size": 104,
+     "w": 900,
+     "color": "white",
+     "at": 0.3,
+     "x": "L"
+    },
+    {
+     "t": "pop",
+     "text": "Pero no a ti.",
+     "size": 96,
+     "color": "orange",
+     "x": "L",
+     "at": 1.6
+    }
+   ]
+  },
+  {
+   "dur": 4.0,
+   "bg": {
+    "clip": 2,
+    "start": 0
+   },
+   "items": [
+    {
+     "t": "text",
+     "text": "Automatizamos tu WhatsApp.",
+     "size": 100,
+     "w": 900,
+     "color": "white",
+     "at": 0,
+     "x": "L"
+    },
+    {
+     "t": "text",
+     "text": "Responde, cotiza y agenda las 24 horas, conectado a tus ventas.",
+     "size": 52,
+     "w": 500,
+     "color": "dato",
+     "at": 0.8,
+     "x": "L",
+     "lh": 1.25
+    }
+   ]
+  },
+  {
+   "dur": 4.4,
+   "items": [
+    {
+     "t": "text",
+     "text": "¿Lo montamos en tu negocio?",
+     "size": 84,
+     "w": 900,
+     "color": "white",
+     "x": "C"
+    },
+    {
+     "t": "rich",
+     "parts": [
+      [
+       "Escribe ",
+       "white"
+      ],
+      [
+       "BOT",
+       "orange"
+      ]
+     ],
+     "size": 64,
+     "x": "C",
+     "at": 0.6
+    },
+    {
+     "t": "text",
+     "text": "o al WhatsApp +57 310 219 7559",
+     "size": 48,
+     "w": 700,
+     "color": "dato",
+     "x": "C",
+     "at": 0.9
+    }
+   ]
+  }
+ ]
+}
