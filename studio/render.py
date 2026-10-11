@@ -105,7 +105,7 @@ class Canvas:
                 self.d.line([(0, gy + off), (w, gy + off)], fill=GRID, width=1)
         if brand:
             by = 210 if h > 1500 else 70
-            lg = logo(260 if h > 1500 else 220)
+            lg = logo(300 if h > 1500 else 250)
             if lg is not None:
                 if self.layer is not None:
                     self.layer.alpha_composite(lg, (MARGIN, by))
