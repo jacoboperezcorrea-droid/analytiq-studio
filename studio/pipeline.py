@@ -3,14 +3,16 @@
 Uso en GitHub Actions:   python -m studio.pipeline --job <uuid>
 Uso local de prueba:     python -m studio.pipeline --spec specs/ejemplo.json --out salida/
 """
-import argparse, json, os, sys, tempfile, urllib.request
+import argparse, json, os, subprocess, sys, tempfile, urllib.request
 
 from studio import render, compose
 
 URL = os.environ.get("STUDIO_URL", "https://nhvtrxxaggusvlimavdn.supabase.co/functions/v1/analytiq-studio")
 SECRET = os.environ.get("STUDIO_SECRET", "")
 
-def call(action, payload=None, raw=None, headers=None):
+UGC_URL = os.environ.get("UGC_URL", "https://nhvtrxxaggusvlimavdn.supabase.co/functions/v1/ugc-studio")
+
+def call(action, payload=None, raw=None, headers=None, url=None):
     h = {"x-studio-secret": SECRET, "x-action": action}
     if headers: h.update(headers)
     if raw is not None:
@@ -18,7 +20,7 @@ def call(action, payload=None, raw=None, headers=None):
     else:
         data = json.dumps({"action": action, **(payload or {})}).encode()
         h["Content-Type"] = "application/json"
-    req = urllib.request.Request(URL, data=data, headers=h, method="POST")
+    req = urllib.request.Request(url or URL, data=data, headers=h, method="POST")
     with urllib.request.urlopen(req, timeout=300) as r:
         j = json.loads(r.read())
     if not j.get("ok"):
@@ -30,6 +32,52 @@ def download(url, path):
         return url
     urllib.request.urlretrieve(url, path)
     return path
+
+def voice_track(spec, clip_paths, workdir):
+    """Arma la pista de voz del reel con el audio de cada clip en su escena (modelos UGC que hablan).
+    Si el spec trae "voice_model", cada clip pasa por el cambiador de voz para que suene con la voz oficial."""
+    model = spec.get("voice_model")
+    fixed = {}
+    for i, p in enumerate(clip_paths):
+        if not p or not has_audio(p):
+            continue
+        if model:
+            wav = os.path.join(workdir, f"voz_{i}_orig.mp3")
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", p, "-vn", "-ac", "1", "-ar", "44100", "-b:a", "192k", wav], check=True)
+            try:
+                with open(wav, "rb") as f:
+                    res = call("voice_change", raw=f.read(), headers={"x-model": model, "Content-Type": "audio/mpeg"}, url=UGC_URL)
+                fixed[i] = download(res["url"], os.path.join(workdir, f"voz_{i}.mp3"))
+            except Exception as e:
+                print("cambio de voz fallo, uso la voz original:", e)
+                fixed[i] = wav
+        else:
+            fixed[i] = p
+    parts, t = [], 0.0
+    for sc in spec["scenes"]:
+        b = sc.get("bg") or {}
+        ci = b.get("clip")
+        if ci is not None and ci in fixed and b.get("audio", True):
+            parts.append((fixed[ci], b.get("start", 0), sc["dur"], t))
+        t += sc["dur"]
+    if not parts:
+        return None
+    inputs, fc = [], []
+    for k, (src, st, dur, off) in enumerate(parts):
+        inputs += ["-i", src]
+        ms = int(off * 1000)
+        fc.append(f"[{k}:a]atrim={st}:{st + dur},asetpts=PTS-STARTPTS,aresample=44100,aformat=channel_layouts=stereo,"
+                  f"afade=t=in:d=0.05,afade=t=out:st={max(0, dur - 0.08):.3f}:d=0.08,adelay={ms}|{ms}[p{k}]")
+    fc.append("".join(f"[p{k}]" for k in range(len(parts))) + f"amix=inputs={len(parts)}:normalize=0,atrim=0:{t:.3f}[a]")
+    out = os.path.join(workdir, "voz.wav")
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error"] + inputs + ["-filter_complex", ";".join(fc), "-map", "[a]", out], check=True)
+    return out
+
+def has_audio(path):
+    try:
+        return compose.probe(path)[1]
+    except Exception:
+        return False
 
 def build(spec, workdir, clip_url=None, music_url=None):
     kind = spec.get("kind", "reel")
@@ -47,7 +95,8 @@ def build(spec, workdir, clip_url=None, music_url=None):
         clip = download(clip_url, os.path.join(workdir, "clip.mp4")) if clip_url and not has_clips else None
         music = download(music_url, os.path.join(workdir, "music.bin")) if music_url else None
         final = os.path.join(workdir, "reel.mp4")
-        compose.compose(anim, final, clip=clip, music=music)
+        voice = voice_track(spec, clip_paths, workdir) if spec.get("voice") and has_clips else None
+        compose.compose(anim, final, clip=clip, music=music, voice=voice)
         if not os.path.exists(cover):
             render.still(spec, spec.get("cover_at", 2.5), cover)
         outs = [(final, "video/mp4"), (cover, "image/png")]
