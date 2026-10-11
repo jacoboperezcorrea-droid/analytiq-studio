@@ -74,19 +74,65 @@ def wrap(draw, text, f, maxw):
         lines.append(cur)
     return lines
 
+LOGO_PATH = os.path.join(HERE, "..", "brand", "logo.png")
+_logo_cache = {}
+def logo(width):
+    """Logo oficial (brand/logo.png). Si no esta, devuelve None y se usa el nombre en texto."""
+    if not os.path.exists(LOGO_PATH):
+        return None
+    if width not in _logo_cache:
+        im = Image.open(LOGO_PATH).convert("RGBA")
+        _logo_cache[width] = im.resize((width, int(im.height * width / im.width)), Image.LANCZOS)
+    return _logo_cache[width]
+
 class Canvas:
-    def __init__(self, w, h, brand=True, grid_offset=0.0):
+    def __init__(self, w, h, brand=True, grid_offset=0.0, bg=None):
         self.w, self.h = w, h
-        self.im = Image.new("RGB", (w, h), BG)
-        self.d = ImageDraw.Draw(self.im)
-        off = grid_offset % 90
-        for gx in range(0, w + 90, 90):
-            self.d.line([(gx - off, 0), (gx - off, h)], fill=GRID, width=1)
-        for gy in range(0, h + 90, 90):
-            self.d.line([(0, gy + off), (w, gy + off)], fill=GRID, width=1)
+        self.bg = bg
+        if bg is not None:
+            # Escena sobre video: se dibuja en una capa transparente y se compone al final
+            self.im = bg
+            self.layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            self.d = ImageDraw.Draw(self.layer)
+        else:
+            self.im = Image.new("RGB", (w, h), BG)
+            self.layer = None
+            self.d = ImageDraw.Draw(self.im)
+            off = grid_offset % 90
+            for gx in range(0, w + 90, 90):
+                self.d.line([(gx - off, 0), (gx - off, h)], fill=GRID, width=1)
+            for gy in range(0, h + 90, 90):
+                self.d.line([(0, gy + off), (w, gy + off)], fill=GRID, width=1)
         if brand:
-            by = 230 if h > 1500 else 80
-            self.d.text((MARGIN, by), "AnalytiQ Core", font=font(700, 34), fill=COLORS["dato"])
+            by = 210 if h > 1500 else 70
+            lg = logo(260 if h > 1500 else 220)
+            if lg is not None:
+                if self.layer is not None:
+                    self.layer.alpha_composite(lg, (MARGIN, by))
+                else:
+                    self.im.paste(lg, (MARGIN, by), lg)
+            else:
+                self.d.text((MARGIN, by + 20), "AnalytiQ Core", font=font(700, 34), fill=self.paint(COLORS["dato"], 1.0))
+
+    def paint(self, c, a):
+        if self.layer is not None:
+            return tuple(c[:3]) + (int(255 * clamp(a)),)
+        return mix(c, a)
+
+    def text(self, xy, txt, font, fill, anchor="la"):
+        """Texto con sombra cuando va sobre video, para que se lea en cualquier escena."""
+        if self.layer is not None:
+            sh = (0, 0, 0, int(fill[3] * 0.75))
+            for ox, oy in ((0, 4), (3, 5), (-2, 3)):
+                self.d.text((xy[0] + ox, xy[1] + oy), txt, font=font, fill=sh, anchor=anchor)
+        self.d.text(xy, txt, font=font, fill=fill, anchor=anchor)
+
+    def final(self):
+        if self.layer is None:
+            return self.im
+        out = self.im.convert("RGBA")
+        out.alpha_composite(self.layer)
+        return out.convert("RGB")
 
     def xpos(self, x):
         if x in (None, "L"): return MARGIN, "l"
@@ -100,7 +146,7 @@ class Canvas:
         d, t = self.d, it["t"]
         x, h = self.xpos(it.get("x"))
         y = it.get("y", 0) + dy
-        c = mix(col(it.get("color", "white")), a)
+        c = self.paint(col(it.get("color", "white")), a)
         if t == "text":
             f = font(it.get("w", 700), it.get("size", 60))
             pad = BOX_PAD if it.get("boxed") else 0
@@ -110,26 +156,26 @@ class Canvas:
             if pad:
                 bh = len(lines) * lh + 2 * pad - (lh - it.get("size", 60))
                 d.rounded_rectangle([MARGIN, y, self.w - MARGIN, y + bh], radius=28,
-                                    outline=mix(col(it.get("box_color", "dato")), a), width=4)
+                                    outline=self.paint(col(it.get("box_color", "dato")), a), width=4)
                 x = self.w // 2 if h == "m" else (x + pad if h == "l" else x - pad)
                 y += pad
             for i, line in enumerate(lines):
-                d.text((x, y + i * lh), line, font=f, fill=c, anchor=h + "a")
+                self.text((x, y + i * lh), line, font=f, fill=c, anchor=h + "a")
         elif t == "rich":
             f = font(it.get("w", 800), it.get("size", 54))
             total = sum(d.textlength(p[0], font=f) for p in it["parts"])
             cx = x - total / 2 if h == "m" else (x - total if h == "r" else x)
             for txt, cname in it["parts"]:
-                d.text((cx, y), txt, font=f, fill=mix(col(cname), a))
+                self.text((cx, y), txt, font=f, fill=self.paint(col(cname), a))
                 cx += d.textlength(txt, font=f)
         elif t == "counter":
             k = ease_out(local_t / it.get("dur", 1.2)) if local_t is not None else 1.0
             v = it.get("from", 0) + (it["to"] - it.get("from", 0)) * k
             txt = clean_prefix(it) + fmt_number(v, it.get("style", "money")) + it.get("suffix", "")
-            d.text((x, y), txt, font=font(it.get("w", 900), it.get("size", 120)), fill=c, anchor=h + "a")
+            self.text((x, y), txt, font=font(it.get("w", 900), it.get("size", 120)), fill=c, anchor=h + "a")
         elif t == "pop":
             sc = ease_back(local_t / 0.6) if local_t is not None else 1.0
-            d.text((x, y), it["text"], font=font(it.get("w", 900), it.get("size", 300) * max(sc, 0.05)), fill=c, anchor=h + "m")
+            self.text((x, y), it["text"], font=font(it.get("w", 900), it.get("size", 300) * max(sc, 0.05)), fill=c, anchor=h + "m")
         elif t == "bar":
             k = ease_out((local_t - 0.1) / 0.6) if local_t is not None else 1.0
             full = it.get("width", self.w - 2 * MARGIN)
@@ -227,41 +273,87 @@ def laid(items, W, H):
 
 # ---------- Reel ----------
 
-def reel_frame(spec, t):
-    W, H = 1080, 1920
-    cv = Canvas(W, H, brand=spec.get("brand", True), grid_offset=t * 12)
+def scene_at(spec, t):
     start = 0.0
     scenes = spec["scenes"]
     for si, sc in enumerate(scenes):
-        dur = sc["dur"]
-        if start <= t < start + dur:
-            lt = t - start
-            last = si == len(scenes) - 1
-            for it in laid(sc["items"], W, H):
-                at = it.get("at", 0.0)
-                a = ease_out((lt - at) / 0.35)
-                if not last:
-                    a *= 1 - ease_out((lt - (dur - 0.3)) / 0.3)
-                dy = (1 - ease_out((lt - at) / 0.35)) * 40
-                if it["t"] in ("pop", "bar", "line"):
-                    dy = 0
-                cv.draw(it, a, dy, lt - at)
-            break
-        start += dur
-    total = sum(s["dur"] for s in scenes)
+        if start <= t < start + sc["dur"] or si == len(scenes) - 1:
+            return si, sc, t - start
+        start += sc["dur"]
+
+def reel_frame(spec, t, bg=None):
+    W, H = 1080, 1920
+    si, sc, lt = scene_at(spec, t)
+    cv = Canvas(W, H, brand=spec.get("brand", True), grid_offset=t * 12, bg=bg)
+    dur = sc["dur"]
+    last = si == len(spec["scenes"]) - 1
+    for it in laid(sc["items"], W, H):
+        at = it.get("at", 0.0)
+        a = ease_out((lt - at) / 0.35)
+        if not last:
+            a *= 1 - ease_out((lt - (dur - 0.3)) / 0.3)
+        dy = 0 if it["t"] in ("pop", "bar", "line") else (1 - ease_out((lt - at) / 0.35)) * 40
+        cv.draw(it, a, dy, lt - at)
+    im = cv.final()
+    total = sum(s["dur"] for s in spec["scenes"])
     if t > total - 0.4:
         k = clamp((t - (total - 0.4)) / 0.4)
-        cv.im = Image.blend(cv.im, Image.new("RGB", (W, H), BG), k)
-    return cv.im
+        im = Image.blend(im, Image.new("RGB", (W, H), BG), k)
+    return im
 
-def render_reel(spec, out_mp4, fps=30):
+class ClipReader:
+    """Lee cuadros de un clip ya escalado a 1080x1920, desde un segundo dado."""
+    def __init__(self, path, start, dur, fps):
+        self.p = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-ss", str(start), "-i", path, "-t", str(dur + 0.5),
+                                   "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=%d" % fps,
+                                   "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
+        self.last = None
+    def next(self):
+        buf = self.p.stdout.read(1080 * 1920 * 3)
+        if len(buf) == 1080 * 1920 * 3:
+            self.last = Image.frombytes("RGB", (1080, 1920), buf)
+        return self.last
+    def close(self):
+        try: self.p.kill()
+        except Exception: pass
+
+def treat(frame, progress, scrim, zoom):
+    """Zoom suave + capa oscura de marca para que el texto se lea sobre el video."""
+    if zoom:
+        z = 1 + zoom * progress
+        w, h = int(1080 / z), int(1920 / z)
+        x0, y0 = (1080 - w) // 2, (1920 - h) // 2
+        frame = frame.crop((x0, y0, x0 + w, y0 + h)).resize((1080, 1920), Image.BILINEAR)
+    return Image.blend(frame, Image.new("RGB", (1080, 1920), BG), scrim)
+
+def render_reel(spec, out_mp4, fps=30, clips=None, cover=None):
+    """clips: lista de rutas de video. Una escena usa {"bg": {"clip": i, "start": s}} para ir sobre el clip i."""
+    clips = clips or []
     total = sum(s["dur"] for s in spec["scenes"])
+    cover_at = spec.get("cover_at", 2.5)
     p = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
                           "-s", "1080x1920", "-r", str(fps), "-i", "-",
                           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-preset", "medium", out_mp4],
                          stdin=subprocess.PIPE)
+    reader, cur_scene = None, None
     for i in range(int(round(total * fps))):
-        p.stdin.write(reel_frame(spec, i / fps).tobytes())
+        t = i / fps
+        si, sc, lt = scene_at(spec, t)
+        bg = None
+        b = sc.get("bg")
+        if b is not None and b.get("clip", 0) < len(clips) and clips[b.get("clip", 0)]:
+            if cur_scene != si:
+                if reader: reader.close()
+                reader = ClipReader(clips[b.get("clip", 0)], b.get("start", 0), sc["dur"], fps)
+                cur_scene = si
+            fr = reader.next()
+            if fr is not None:
+                bg = treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06))
+        im = reel_frame(spec, t, bg)
+        if cover and abs(t - cover_at) < 0.5 / fps:
+            im.save(cover)
+        p.stdin.write(im.tobytes())
+    if reader: reader.close()
     p.stdin.close()
     if p.wait() != 0:
         raise RuntimeError("ffmpeg fallo renderizando el reel")
@@ -281,7 +373,7 @@ def render_slides(spec, out_prefix):
         if len(slides) > 1 and not story:
             cv.d.text((1080 - MARGIN, 80), f"{i}/{len(slides)}", font=font(700, 30), fill=COLORS["dato"], anchor="ra")
         path = f"{out_prefix}_{i:02d}.png"
-        cv.im.save(path)
+        cv.final().save(path)
         outs.append(path)
     return outs
 

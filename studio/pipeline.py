@@ -36,13 +36,20 @@ def build(spec, workdir, clip_url=None, music_url=None):
     outs = []
     if kind == "reel":
         anim = os.path.join(workdir, "anim.mp4")
-        render.render_reel(spec, anim)
-        clip = download(clip_url, os.path.join(workdir, "clip.mp4")) if clip_url else None
+        cover = os.path.join(workdir, "portada.png")
+        clip_paths = []
+        for i, c in enumerate(spec.get("clips") or []):
+            src = c.get("url") or c.get("path")
+            clip_paths.append(download(src, os.path.join(workdir, f"clip_{i}.mp4")) if src else None)
+        has_clips = any(clip_paths)
+        render.render_reel(spec, anim, clips=clip_paths, cover=cover if has_clips else None)
+        # Modo clasico: un solo clip de gancho antes de la animacion
+        clip = download(clip_url, os.path.join(workdir, "clip.mp4")) if clip_url and not has_clips else None
         music = download(music_url, os.path.join(workdir, "music.bin")) if music_url else None
         final = os.path.join(workdir, "reel.mp4")
         compose.compose(anim, final, clip=clip, music=music)
-        cover = os.path.join(workdir, "portada.png")
-        render.still(spec, spec.get("cover_at", 2.5), cover)
+        if not os.path.exists(cover):
+            render.still(spec, spec.get("cover_at", 2.5), cover)
         outs = [(final, "video/mp4"), (cover, "image/png")]
     else:
         outs = [(p, "image/png") for p in render.render_slides(spec, os.path.join(workdir, "slide"))]
