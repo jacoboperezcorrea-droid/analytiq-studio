@@ -53,6 +53,7 @@ def voice_track(spec, clip_paths, workdir):
                 fixed[i] = wav
         else:
             fixed[i] = p
+    speed = float(spec.get("speed", 1.0))
     parts, t = [], 0.0
     for sc in spec["scenes"]:
         b = sc.get("bg") or {}
@@ -66,7 +67,8 @@ def voice_track(spec, clip_paths, workdir):
     for k, (src, st, dur, off) in enumerate(parts):
         inputs += ["-i", src]
         ms = int(off * 1000)
-        fc.append(f"[{k}:a]atrim={st}:{st + dur},asetpts=PTS-STARTPTS,aresample=44100,aformat=channel_layouts=stereo,"
+        tempo = f"atempo={speed}," if speed != 1 else ""
+        fc.append(f"[{k}:a]atrim={st}:{st + dur * speed},asetpts=PTS-STARTPTS,{tempo}aresample=44100,aformat=channel_layouts=stereo,"
                   f"afade=t=in:d=0.05,afade=t=out:st={max(0, dur - 0.08):.3f}:d=0.08,adelay={ms}|{ms}[p{k}]")
     fc.append("".join(f"[p{k}]" for k in range(len(parts))) + f"amix=inputs={len(parts)}:normalize=0,atrim=0:{t:.3f}[a]")
     out = os.path.join(workdir, "voz.wav")

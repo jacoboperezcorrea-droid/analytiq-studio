@@ -303,9 +303,11 @@ def reel_frame(spec, t, bg=None):
 
 class ClipReader:
     """Lee cuadros de un clip ya escalado a 1080x1920, desde un segundo dado."""
-    def __init__(self, path, start, dur, fps):
-        self.p = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-ss", str(start), "-i", path, "-t", str(dur + 0.5),
-                                   "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=%d" % fps,
+    def __init__(self, path, start, dur, fps, speed=1.0):
+        # speed > 1 acelera el clip (ritmo de creador); start se mide en segundos del clip original
+        vf = ("setpts=PTS/%s," % speed if speed != 1 else "") + "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=%d" % fps
+        self.p = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-ss", str(start), "-i", path, "-t", str(dur * speed + 0.5),
+                                   "-vf", vf,
                                    "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
         self.last = None
     def next(self):
@@ -317,10 +319,11 @@ class ClipReader:
         try: self.p.kill()
         except Exception: pass
 
-def treat(frame, progress, scrim, zoom):
-    """Zoom suave + capa oscura de marca para que el texto se lea sobre el video."""
-    if zoom:
-        z = 1 + zoom * progress
+def treat(frame, progress, scrim, zoom, punch=1.0):
+    """Zoom suave + capa oscura de marca para que el texto se lea sobre el video.
+    punch: zoom fijo de corte (1.15 = plano mas cerrado), el golpe de zoom tipico de creadores."""
+    if zoom or punch != 1.0:
+        z = punch * (1 + zoom * progress)
         w, h = int(1080 / z), int(1920 / z)
         x0, y0 = (1080 - w) // 2, (1920 - h) // 2
         frame = frame.crop((x0, y0, x0 + w, y0 + h)).resize((1080, 1920), Image.BILINEAR)
@@ -344,11 +347,11 @@ def render_reel(spec, out_mp4, fps=30, clips=None, cover=None):
         if b is not None and b.get("clip", 0) < len(clips) and clips[b.get("clip", 0)]:
             if cur_scene != si:
                 if reader: reader.close()
-                reader = ClipReader(clips[b.get("clip", 0)], b.get("start", 0), sc["dur"], fps)
+                reader = ClipReader(clips[b.get("clip", 0)], b.get("start", 0), sc["dur"], fps, spec.get("speed", 1.0))
                 cur_scene = si
             fr = reader.next()
             if fr is not None:
-                bg = treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06))
+                bg = treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06), b.get("punch", 1.0))
         im = reel_frame(spec, t, bg)
         if cover and abs(t - cover_at) < 0.5 / fps:
             im.save(cover)
