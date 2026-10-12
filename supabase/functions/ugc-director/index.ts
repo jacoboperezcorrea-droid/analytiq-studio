@@ -137,13 +137,16 @@ async function anthropic(system: string, user: string, req: any, step: string) {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 4000, system, messages: [{ role: "user", content: user }] }),
+    // La respuesta sale por una herramienta forzada: asi el JSON siempre llega valido (comillas escapadas)
+    body: JSON.stringify({ model: MODEL, max_tokens: 6000, system, messages: [{ role: "user", content: user }],
+      tools: [{ name: "entregar_guion", description: "Entrega el guion con la estructura JSON pedida en las instrucciones.", input_schema: { type: "object", additionalProperties: true } }],
+      tool_choice: { type: "tool", name: "entregar_guion" } }),
   });
   const j = await r.json();
   if (!r.ok) throw new Error("Claude API: " + (j.error?.message || r.status));
-  const txt = (j.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("");
-  const m = txt.match(/\{[\s\S]*\}/);
-  if (!m) throw new Error("Claude no devolvio JSON");
+  const tool = (j.content || []).find((c: any) => c.type === "tool_use");
+  if (!tool?.input) throw new Error("Claude no devolvio el guion");
+  const m = [JSON.stringify(tool.input)];
   const u = j.usage || {};
   const cost = ((u.input_tokens || 0) * 2 + (u.output_tokens || 0) * 10) / 1e6;
   await sb.from("ugc_generations").insert({ order_id: req.order_id, model_slug: req.model_slug, step, quality: "final", provider: "anthropic",
@@ -299,7 +302,7 @@ async function stepNewFilm(req: any, model: any, orderId: string) {
   // Fase 2: imagen de cada ambiente con la modelo (Gemini, calidad final), en paralelo
   const faltan = script.escenas.map((e: any, i: number) => (e.img ? -1 : i)).filter((i: number) => i >= 0);
   if (faltan.length) {
-    const refs = [model.photos?.frente_sonrisa, model.photos?.cuerpo_entero, model.look].filter(Boolean);
+    const refs = [model.photos?.maquillaje || model.photos?.frente_sonrisa, model.photos?.cuerpo_entero, model.look].filter(Boolean);
     const res = await Promise.all(faltan.map((i: number) => callFn("ugc-studio", {
       action: "generate", quality: "final", slug: req.model_slug, step: `pedido_${req.id.slice(0, 8)}_amb${i + 1}`, order_id: orderId,
       refs, prompt: filmImagePrompt(script.escenas[i]), n: 1,
