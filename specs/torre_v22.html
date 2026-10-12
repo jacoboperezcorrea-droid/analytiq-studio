@@ -1,0 +1,783 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Torre de control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: app de una columna, barra de pestañas abajo en celular, arriba en escritorio */
+:root{
+  --bg:#FAF6EE; --surface:#FFFFFF; --ink:#1A1A1A; --muted:#6B675E; --line:#E4DCCB;
+  --lime:#C8F03C; --lime-ink:#1A1A1A; --coral:#FF5A3C; --ok:#2E7D5B; --warn:#B7791F; --bad:#C2412D;
+  --chip:#F1ECDF;
+  --f-display:"Poppins", system-ui, sans-serif; --f-body:"Poppins", system-ui, sans-serif; --f-mono:"JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#141413; --surface:#1E1E1C; --ink:#F3EFE6; --muted:#A39E92; --line:#33322E; --chip:#2A2926;
+  --ok:#5FBF8F; --warn:#E0A84A; --bad:#F07A63; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#141413; --surface:#1E1E1C; --ink:#F3EFE6; --muted:#A39E92; --line:#33322E; --chip:#2A2926;
+  --ok:#5FBF8F; --warn:#E0A84A; --bad:#F07A63; color-scheme:dark }
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--f-body);font-size:14px;line-height:1.45}
+.wrap{max-width:860px;margin:0 auto;padding-inline:16px;padding-block:14px 96px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:6px 14px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand svg{width:30px;height:30px;color:var(--ink)}
+.brand b{font-family:var(--f-display);font-weight:700;font-size:18px;letter-spacing:-.01em}
+.brand span{display:block;font-size:12px;color:var(--muted)}
+.status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dot.live{background:var(--ok)}
+button{font:inherit;cursor:pointer}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:12px}
+.ghost:focus-visible,.tab:focus-visible,.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;gap:4px;background:var(--surface);border-top:1px solid var(--line);padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px))}
+.tab{flex:1;max-width:150px;border:0;background:transparent;color:var(--muted);border-radius:12px;padding:8px 4px;font-size:12px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative}
+.tab svg{width:20px;height:20px}
+.tab[aria-selected="true"]{background:var(--lime);color:var(--lime-ink)}
+.badge{position:absolute;top:2px;right:calc(50% - 22px);min-width:18px;height:18px;border-radius:9px;background:var(--coral);color:#fff;font-size:11px;font-weight:600;display:grid;place-items:center;padding:0 5px}
+@media (min-width:760px){ nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);bottom:auto;border-top:0;border-bottom:1px solid var(--line);margin-bottom:18px;border-radius:0} .wrap{padding-block:14px 40px} }
+h2{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:-.01em;margin:4px 0 4px;text-wrap:balance}
+.lede{color:var(--muted);margin:0 0 16px;max-width:60ch}
+.banner{border-radius:12px;padding:12px 14px;margin-bottom:14px;background:var(--chip);border:1px solid var(--line)}
+.banner[data-kind="bad"]{border-color:var(--bad)}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px}
+@media (min-width:640px){.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;min-width:0}
+.kpi small{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.kpi b{display:block;font-family:var(--f-display);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi.hl{background:var(--lime);border-color:var(--lime);color:var(--lime-ink)}
+.kpi.hl small{color:var(--lime-ink);opacity:.7}
+.goal{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:16px}
+.goal .row{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.bar{height:10px;border-radius:5px;background:var(--chip);margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--lime);border-radius:5px;width:0}
+.sec-title{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:18px 0 8px}
+.sec-title h3{margin:0;font-size:15px;font-weight:600}
+.sec-title small{color:var(--muted)}
+.list{display:grid;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+.card h4{margin:0 0 4px;font-size:15px;font-weight:600;text-wrap:balance}
+.meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:600;background:var(--chip);color:var(--ink)}
+.pill.pending{background:var(--coral);color:#fff}
+.pill.approved,.pill.published{background:var(--ok);color:#fff}
+.pill.rejected,.pill.failed,.pill.cancelled{background:var(--bad);color:#fff}
+.pill.draft{background:var(--chip);color:var(--muted)}
+.pill.scheduled{background:var(--lime);color:var(--lime-ink)}
+.pill.ig::before,.pill.fb::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.detail{margin-top:10px;border-top:1px dashed var(--line);padding-top:10px;display:grid;gap:8px;font-size:13px}
+.detail dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 12px;margin:0}
+.detail dt{color:var(--muted)}
+.detail dd{margin:0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ad{background:var(--chip);border-radius:10px;padding:10px}
+.ad b{display:block;font-size:12px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{border:0;border-radius:999px;padding:9px 16px;font-weight:600;font-size:13px}
+.btn.yes{background:var(--ink);color:var(--bg)}
+.btn.no{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.confirm{background:var(--lime);color:var(--lime-ink)}
+.btn[disabled]{opacity:.5;cursor:default}
+.day{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin:14px 0 6px;text-transform:capitalize}
+.post{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:start}
+.thumb{width:64px;height:64px;border-radius:10px;background:var(--chip);object-fit:cover}
+.cap{white-space:pre-line;font-size:13px;margin:6px 0 0;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.cap.open{display:block}
+.link{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;font-size:12px}
+.tags{font-size:12px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+.empty{display:grid;justify-items:center;text-align:center;gap:6px;padding:28px 16px;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:14px}
+.empty svg{width:34px;height:34px;color:var(--ink);opacity:.5}
+.empty b{color:var(--ink)}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+/* Selector de negocio */
+:root[data-biz="aq"]{--lime:#4BA0C7;--lime-ink:#0A2E4A;--coral:#E66521}
+.biz{display:flex;gap:4px;padding:4px;background:var(--chip);border:1px solid var(--line);border-radius:999px;margin:0 0 14px;width:max-content;max-width:100%}
+.biz button{border:0;background:transparent;color:var(--muted);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600}
+.biz button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.biz button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:13px;z-index:9}
+@media (prefers-reduced-motion:no-preference){.card{transition:border-color .15s}}
+/* Modulo UGC */
+.models{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 10px}
+.model{flex:none;width:96px;border:0;background:transparent;padding:0;display:grid;justify-items:center;gap:6px;color:var(--ink);text-align:center}
+.model .ph{width:84px;height:84px;border-radius:50%;background:var(--chip);border:3px solid var(--line);overflow:hidden;display:grid;place-items:center;font-weight:700;font-size:24px}
+.model .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.model[aria-pressed="true"] .ph{border-color:var(--lime);box-shadow:0 0 0 3px var(--ink)}
+.model b{font-size:13px}.model small{font-size:11px;color:var(--muted);line-height:1.2}
+.model:focus-visible{outline:2px solid var(--ink);outline-offset:4px;border-radius:12px}
+.form{display:grid;gap:12px}
+.form label{display:grid;gap:5px;font-size:13px;font-weight:600}
+.form select,.form textarea{font:inherit;font-weight:400;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%}
+.form textarea{min-height:96px;resize:vertical}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:8px 16px;font-weight:600;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--lime);color:var(--lime-ink);border-color:var(--lime)}
+.checks{display:grid;gap:8px}
+.checks label{display:flex;align-items:center;gap:8px;font-weight:500}
+.checks input{width:18px;height:18px;accent-color:var(--ink)}
+.hint{font-size:12px;color:var(--muted)}
+.form input[type=text],.form input[type=url],.form input[type=date]{font:inherit;font-weight:400;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%}
+.flabel{font-size:13px;font-weight:600;margin-bottom:6px}.flabel small{font-weight:400;color:var(--muted)}.req{color:var(--coral)}
+details.blk>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}
+details.blk>summary::-webkit-details-marker{display:none}
+details.blk>summary span{display:grid;gap:2px}details.blk>summary small{color:var(--muted);font-size:12px}
+details.blk>summary::after{content:"+";font-size:20px;font-weight:600;color:var(--muted)}
+details.blk[open]>summary::after{content:"−"}
+details.blk>summary:focus-visible{outline:2px solid var(--ink);outline-offset:4px;border-radius:8px}
+.seg button{text-align:left}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="42" cy="42" r="28" fill="none" stroke="currentColor" stroke-width="10"/><line x1="63" y1="63" x2="86" y2="86" stroke="currentColor" stroke-width="11" stroke-linecap="round"/></svg>
+      <div><b>Torre de control</b><span id="biz-sub">Hallazgo · AnalytiQ Core Commerce</span></div>
+    </div>
+    <div class="status"><i class="dot" id="dot"></i><span id="updated">Conectando…</span><button class="ghost" id="refresh" type="button">Actualizar</button></div>
+  </header>
+
+  <div class="biz" role="group" aria-label="Negocio">
+    <button type="button" id="biz-hz" data-biz="hz" aria-pressed="true">Hallazgo</button>
+    <button type="button" id="biz-aq" data-biz="aq" aria-pressed="false">AnalytiQ Core</button>
+  </div>
+
+  <nav class="tabs" role="tablist" aria-label="Secciones">
+    <button class="tab" role="tab" id="t-inicio" aria-selected="true" data-tab="inicio" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Inicio</button>
+    <button class="tab" role="tab" id="t-aprobar" aria-selected="false" data-tab="aprobar" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Aprobar<span class="badge" id="badge" hidden>0</span></button>
+    <button class="tab" role="tab" id="t-redes" aria-selected="false" data-tab="redes" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Redes</button>
+    <button class="tab" role="tab" id="t-clientes" aria-selected="false" data-tab="clientes" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3"/></svg>Clientes</button>
+    <button class="tab" role="tab" id="t-ugc" aria-selected="false" data-tab="ugc" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg>UGC</button>
+  </nav>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <section id="p-inicio" role="tabpanel">
+    <div class="card" id="resumen" hidden style="margin-bottom:16px"><div class="meta"><span class="pill">Resumen del día</span><span id="resumen-fecha"></span></div><p id="resumen-txt" style="white-space:pre-line;margin:8px 0 0;font-size:14px;line-height:1.5"></p></div>
+    <div id="aq-inicio" hidden>
+      <h2>Así van las redes de AnalytiQ</h2>
+      <p class="lede">Instagram y Facebook de AnalytiQ Core. Lo que se programa aquí sale solo a la hora indicada.</p>
+      <div class="kpis">
+        <div class="kpi hl"><small>Programadas</small><b id="a-prog">–</b></div>
+        <div class="kpi"><small>Publicadas 30 días</small><b id="a-pub">–</b></div>
+        <div class="kpi"><small>Fallidas</small><b id="a-fail">–</b></div>
+        <div class="kpi"><small>Por aprobar</small><b id="a-apr">–</b></div>
+      </div>
+    </div>
+    <div id="hz-inicio">
+    <h2>Así va la tienda</h2>
+    <p class="lede">Ventas de Shopify en vivo, sin contar pedidos de prueba. Hora de Colombia.</p>
+    <div class="kpis">
+      <div class="kpi hl"><small>Pedidos hoy</small><b id="k-hoy">–</b></div>
+      <div class="kpi"><small>Ventas del mes</small><b id="k-mes">–</b></div>
+      <div class="kpi"><small>Por despachar</small><b id="k-desp">–</b></div>
+      <div class="kpi"><small>Por aprobar</small><b id="k-apr">–</b></div>
+    </div>
+    <div class="goal">
+      <div class="row"><b>Meta del mes</b><span id="g-txt">$0 de $4.000.000</span></div>
+      <div class="bar"><i id="g-bar"></i></div>
+    </div>
+    <div class="sec-title"><h3>Últimos pedidos</h3><small id="o-count"></small></div>
+    <div class="list" id="orders"></div>
+    </div>
+    <div class="sec-title"><h3>Próximas publicaciones</h3><small>Instagram y Facebook</small></div>
+    <div class="list" id="next-posts"></div>
+  </section>
+
+  <section id="p-aprobar" role="tabpanel" hidden>
+    <h2>Por aprobar</h2>
+    <p class="lede">Lo que necesita tu visto bueno antes de salir: productos nuevos, imágenes, videos y avisos. Al aprobar, el sistema lo ejecuta en su siguiente ronda.</p>
+    <div class="list" id="approvals"></div>
+    <div class="sec-title"><h3>Historial</h3><small>Últimas decisiones</small></div>
+    <div class="list" id="history"></div>
+  </section>
+
+  <section id="p-redes" role="tabpanel" hidden>
+    <h2>Calendario de redes</h2>
+    <p class="lede" id="redes-lede">Publicaciones programadas para Instagram y Facebook. Puedes pausar cualquiera antes de que salga.</p>
+    <div id="posts"></div>
+  </section>
+
+  <section id="p-ugc" role="tabpanel" hidden>
+    <h2>Videos UGC</h2>
+    <p class="lede">Brief de producción por roles. Cada bloque le llega solo al agente que decide eso (guion, acento, ambientes, vestuario, actuación, edición), como en un set de rodaje. Lo que no cambies queda con la opción recomendada. Cuando el video esté listo te llega a <b>Aprobar</b>.</p>
+    <div class="sec-title"><h3>1. Modelo</h3><small id="ugc-mcount"></small></div>
+    <div class="models" id="ugc-models" role="group" aria-label="Modelos"></div>
+    <div class="card form" style="margin-top:6px">
+      <label>2. Producto o servicio
+        <select id="ugc-prod"><option value="">Cargando productos…</option></select>
+      </label>
+      <div id="ugc-otro" class="form" hidden>
+        <label>Nombre del producto o servicio<input type="text" id="ugc-otro-nombre" maxlength="120" placeholder="Ej: Pizza personal de La Esquina"></label>
+        <label>Qué es y qué lo hace especial<textarea id="ugc-otro-info" maxlength="800" placeholder="Ej: Masa madre, horno de leña, domicilio en Laureles en 30 minutos."></textarea></label>
+        <label>Link de una foto del producto (opcional)<input type="url" id="ugc-otro-img" placeholder="https://..."></label>
+      </div>
+    </div>
+    <div id="ugc-blocks"></div>
+    <div class="card form" style="margin-top:12px">
+      <div class="hint" id="ugc-cost">Costo aproximado: calculando…</div>
+      <div class="hint" id="ugc-missing" hidden></div>
+      <div class="actions" style="margin-top:0"><button class="btn yes" type="button" id="ugc-send">Pedir video</button></div>
+    </div>
+    <div class="sec-title"><h3>Pedidos</h3><small>Se actualiza cada 2 minutos</small></div>
+    <div class="list" id="ugc-list"></div>
+  </section>
+
+  <section id="p-clientes" role="tabpanel" hidden>
+    <h2>Clientes</h2>
+    <p class="lede">Tu CRM: cada persona que pide o deja sus datos, con cuántos pedidos recibió o devolvió.</p>
+    <div class="kpis">
+      <div class="kpi"><small>Total</small><b id="c-total">–</b></div>
+      <div class="kpi"><small>Leads</small><b id="c-leads">–</b></div>
+      <div class="kpi"><small>Clientes</small><b id="c-cli">–</b></div>
+      <div class="kpi"><small>Devoluciones</small><b id="c-dev">–</b></div>
+    </div>
+    <div id="customers"></div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+  const BIZ = {
+    hz:{tenant:"dbd5de2f-ca0d-47cb-b5cb-92b3c74fdf6f", sub:"Hallazgo · AnalytiQ Core Commerce"},
+    aq:{tenant:"c6e4b4ac-8904-458e-aa70-a8b348269fe9", sub:"AnalytiQ Core · Consultoría"}
+  };
+  let bizKey = "hz";
+  try{ const b = localStorage.getItem("torre-biz"); if (BIZ[b]) bizKey = b; }catch(e){}
+  let TENANT = BIZ[bizKey].tenant;
+  const PROJECT = "nhvtrxxaggusvlimavdn";
+  const TZ = "America/Bogota";
+  const GOAL = 4000000;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const money = n => "$" + Math.round(Number(n)||0).toLocaleString("es-CO");
+  const dayKey = d => new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit"}).format(d);
+  const fDay = new Intl.DateTimeFormat("es-CO",{timeZone:TZ,weekday:"long",day:"numeric",month:"long"});
+  const fTime = new Intl.DateTimeFormat("es-CO",{timeZone:TZ,hour:"numeric",minute:"2-digit"});
+  const fShort = new Intl.DateTimeFormat("es-CO",{timeZone:TZ,day:"numeric",month:"short",hour:"numeric",minute:"2-digit"});
+  const LUPA = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="42" cy="42" r="28" fill="none" stroke="currentColor" stroke-width="9"/><line x1="63" y1="63" x2="86" y2="86" stroke="currentColor" stroke-width="10" stroke-linecap="round"/></svg>';
+  const empty = (t, s) => `<div class="empty">${LUPA}<b>${esc(t)}</b><span>${esc(s)}</span></div>`;
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  const TYPE = {product:"Producto nuevo", shipping_notice:"Aviso de envío", social_post:"Publicación", creative:"Imagen nueva", other:"Otro"};
+  const PSTATUS = {draft:"Borrador", pending_approval:"Por aprobar", scheduled:"Programada", publishing:"Publicando", published:"Publicada", failed:"Falló", cancelled:"Pausada"};
+  const ASTATUS = {pending:"Pendiente", approved:"Aprobado · en ejecución", rejected:"Rechazado", done:"Ejecutado", expired:"No se pudo ejecutar"};
+
+  // pestañas
+  const tabs = [...document.querySelectorAll(".tab")];
+  function show(name){
+    tabs.forEach(t => t.setAttribute("aria-selected", String(t.dataset.tab === name)));
+    ["inicio","aprobar","redes","clientes","ugc"].forEach(n => $("p-"+n).hidden = n !== name);
+    if (name==="ugc") setTimeout(() => { try{ if (mcp) loadUgc(); }catch(e){} }, 0);
+    try{ localStorage.setItem("torre-tab", name) }catch(e){}
+  }
+  tabs.forEach(t => t.addEventListener("click", () => show(t.dataset.tab)));
+  let start = "inicio";
+  const h = (location.hash||"").slice(1);
+  if (["inicio","aprobar","redes","clientes","ugc"].includes(h)) start = h;
+  else { try{ const s = localStorage.getItem("torre-tab"); if (s && $("p-"+s)) start = s; }catch(e){} }
+  show(start);
+
+  // estados vacíos iniciales
+  $("orders").innerHTML = empty("Aún no hay pedidos", "Cada pedido nuevo aparece aquí con ciudad, producto y estado.");
+  $("next-posts").innerHTML = empty("Cargando publicaciones", "Se leen de la base de datos de AnalytiQ Core.");
+  $("approvals").innerHTML = empty("Cargando bandeja", "Aquí aparece lo que necesita tu aprobación.");
+  $("history").innerHTML = "";
+  $("posts").innerHTML = empty("Cargando calendario", "Publicaciones de Instagram y Facebook.");
+  $("customers").innerHTML = empty("Aún no hay clientes", "Se llena solo con cada pedido y cada lead.");
+
+  function toast(msg){ const t=$("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2600); }
+  function banner(msg, kind){ const b=$("banner"); if(!msg){b.hidden=true;return} b.textContent=msg; b.dataset.kind=kind||"warn"; b.hidden=false; }
+  function errMsg(err, who){
+    const c = err?.code;
+    if (c==="needs_reauth") return `La conexión con ${who} se venció. Vuelve a conectarla en claude.ai, Configuración, Conectores.`;
+    if (c==="server_not_connected"||c==="selection_required") return `Falta el conector de ${who}. Agrégalo en claude.ai, Configuración, Conectores.`;
+    if (c==="not_in_manifest"||c==="not_granted"||c==="consent_required") return `La Torre no tiene permiso para usar ${who}. Ábrela de nuevo y acepta el permiso.`;
+    if (c==="blocked_by_policy"||c==="approval_required") return `Tu organización no permite que esta página use ${who}.`;
+    if (c==="tool_error") return `${who} respondió con un error: ${err.message||"sin detalle"}.`;
+    return `${who} no respondió esta vez. Toca Actualizar en un momento.`;
+  }
+
+  // ---------- Supabase ----------
+  function sqlRows(res){
+    let p = res?.payload;
+    let s = typeof p === "string" ? p : (p && typeof p.result === "string" ? p.result : null);
+    if (s == null){
+      const t = (res?.content||[]).find(b => b.type==="text");
+      s = t ? t.text : "";
+      try{ const j = JSON.parse(s); if (j && typeof j.result==="string") s = j.result; }catch(e){}
+    }
+    sqlRows.last = String(s||"").slice(0,220);
+    const m = s.match(/<untrusted-data-[^>]*>\s*([\s\S]*?)\s*<\/untrusted-data/);
+    try{ return JSON.parse(m ? m[1] : s); }catch(e){}
+    const a = s.indexOf("[{"), b = s.lastIndexOf("}]");
+    if (a >= 0 && b > a){ try{ return JSON.parse(s.slice(a, b+2)); }catch(e){} }
+    return null;
+  }
+  // Tres lecturas pequeñas en vez de una grande: el conector corta respuestas muy largas.
+  const SQL_APR = () => `select coalesce(json_agg(a),'[]'::json) as r from (select id,type,title,(case when type='creative' then null else summary end) as summary,(case when status='pending' then payload - 'prompt' - 'reglas_internas' - 'ejecucion' - 'meta_ids' - 'angulo_creativo' - 'tienda' - 'resultado' else jsonb_strip_nulls(jsonb_build_object('error',payload->'error','resultado',payload->'resultado')) end) as payload,status,created_at,decided_at from public.com_approvals where tenant_id='${TENANT}' and (status='pending' or decided_at > now() - interval '7 days') order by (status='pending') desc, created_at desc limit 25) a`;
+  const SQL_POSTS = () => `select coalesce(json_agg(p),'[]'::json) as r from (select id,channel,kind,caption,hashtags,media_urls,product_ref,scheduled_at,status,permalink,error from public.com_social_posts where tenant_id='${TENANT}' and scheduled_at > now() - interval '1 day' and scheduled_at < now() + interval '8 days' order by scheduled_at, channel limit 30) p`;
+  const SQL_CRM = () => `select json_build_object(
+ 'crm',(select json_build_object('total',count(*),'leads',count(*) filter (where stage='lead'),'clientes',count(*) filter (where stage in ('customer','repeat')),'dev',coalesce(sum(returned_count),0)) from public.com_customers where tenant_id='${TENANT}'),
+ 'customers',(select coalesce(json_agg(c),'[]'::json) from (select full_name,city,stage,orders_count,delivered_count,returned_count,total_spent,last_order_at,first_seen_at from public.com_customers where tenant_id='${TENANT}' order by coalesce(last_order_at,first_seen_at) desc limit 40) c),
+ 'resumen',(select value from public.com_settings where tenant_id='${TENANT}' and key='resumen_diario')) as r`;
+  const SQL_STATS = () => `select json_build_object('prog',count(*) filter (where status in ('scheduled','draft','pending_approval') and scheduled_at > now()),'pub',count(*) filter (where status='published' and coalesce(published_at,scheduled_at) > now() - interval '30 days'),'fail',count(*) filter (where status='failed' and scheduled_at > now() - interval '30 days')) as r from public.com_social_posts where tenant_id='${TENANT}'`;
+  async function q1(sql){
+    const res = await mcp.callTool("Supabase","execute_sql",{project_id:PROJECT, query:sql});
+    const rows = sqlRows(res);
+    const r = rows && rows[0] ? rows[0].r : undefined;
+    if (r === undefined || r === null) throw { code:"parse", raw: sqlRows.last, which: sql.slice(0,60) };
+    return typeof r === "string" ? JSON.parse(r) : r;
+  }
+
+  let mcp = null, sb = null, busy = false;
+
+  async function loadSupabase(){
+    try{
+      const myTenant = TENANT;
+      const rs = await Promise.allSettled([q1(SQL_APR()), q1(SQL_POSTS()), q1(SQL_CRM()), q1(SQL_STATS())]);
+      if (myTenant !== TENANT) return;
+      $("resumen").hidden = true;
+      const st = rs[3].status==="fulfilled" ? rs[3].value : null;
+      $("a-prog").textContent = st ? st.prog : "–"; $("a-pub").textContent = st ? st.pub : "–"; $("a-fail").textContent = st ? st.fail : "–";
+      const v = (i, d) => rs[i].status==="fulfilled" ? rs[i].value : d;
+      const rest = v(2, {crm:{total:0,leads:0,clientes:0,dev:0}, customers:[]});
+      sb = { approvals: v(0, []), posts: v(1, []), crm: rest.crm, customers: rest.customers };
+      if (rest.resumen && rest.resumen.texto){ $("resumen").hidden = false; $("resumen-txt").textContent = rest.resumen.texto; $("resumen-fecha").textContent = "Operación del " + rest.resumen.fecha; }
+      renderSupabase(); markUpdated(); loadThumbs();
+      const bad = rs.find(r => r.status==="rejected");
+      if (bad) throw bad.reason; else banner(null);
+    }catch(err){
+      if (err?.code==="parse") banner("La base de datos respondió algo inesperado. Detalle para Claude: " + (err.which||"") + " → " + (err.raw||"(vacío)"));
+      else banner(errMsg(err,"Supabase"), err?.code==="tool_error"?"warn":"bad");
+    }
+  }
+
+
+  // Miniaturas: la Torre no puede cargar imágenes de otros sitios, las lee de la base de datos (com_thumbs).
+  const thumbCache = new Map();
+  async function loadThumbs(){
+    if (!mcp) return;
+    const imgs = [...document.querySelectorAll("img[data-thumb]:not([src])")];
+    for (const im of imgs){
+      const u = im.getAttribute("data-thumb");
+      if (thumbCache.has(u)){ if (thumbCache.get(u)) im.src = thumbCache.get(u); continue; }
+      try{
+        const res = await mcp.callTool("Supabase","execute_sql",{project_id:PROJECT, query:`select data as r from public.com_thumbs where url='${u.replace(/'/g,"''")}'`});
+        const rows = sqlRows(res); const d = rows && rows[0] && rows[0].r;
+        thumbCache.set(u, d || null);
+        document.querySelectorAll(`img[data-thumb="${CSS.escape(u)}"]`).forEach(x => { if (d) x.src = d; });
+      }catch(e){ thumbCache.set(u, null); }
+    }
+  }
+  function renderSupabase(){
+    const pend = sb.approvals.filter(a => a.status==="pending" && a.type!=="campaign" && a.type!=="ads_budget");
+    $("k-apr").textContent = pend.length; $("a-apr").textContent = pend.length;
+    $("badge").textContent = pend.length; $("badge").hidden = !pend.length;
+    $("approvals").innerHTML = pend.length ? pend.map(approvalCard).join("") : empty("Nada pendiente", "Cuando haya un producto, imagen o aviso para revisar, aparece aquí y te llega una notificación.");
+    const hist = sb.approvals.filter(a => a.status!=="pending" && a.type!=="campaign" && a.type!=="ads_budget").slice(0,10);
+    $("history").innerHTML = hist.length ? hist.map(a => `<div class="card"><div class="meta"><span class="pill ${a.status==="done"?"approved":a.status==="expired"?"failed":esc(a.status)}">${esc(ASTATUS[a.status]||a.status)}</span><span>${esc(TYPE[a.type]||a.type)}</span><span>${a.decided_at?esc(fShort.format(new Date(a.decided_at))):""}</span></div><h4 style="margin-top:6px">${esc(a.title)}</h4>${a.status==="approved"?'<div style="font-size:12px;color:var(--muted)">El sistema lo ejecuta en los próximos 10 minutos.</div>':""}${a.payload&&a.payload.error?`<div style="font-size:12px;color:var(--bad);margin-top:4px;overflow-wrap:anywhere">${esc(a.payload.error)}</div>`:""}</div>`).join("") : '<p class="lede">Todavía no has tomado decisiones.</p>';
+
+    // publicaciones
+    const posts = sb.posts;
+    const allDraft = posts.length && posts.every(p => p.status==="draft" || p.status==="cancelled");
+    $("redes-lede").textContent = allDraft
+      ? "Estas publicaciones están en borrador y no salen hasta que se programen. Puedes pausar cualquiera."
+      : "Publicaciones programadas para Instagram y Facebook. Puedes pausar cualquiera antes de que salga.";
+    if (!posts.length){ $("posts").innerHTML = empty("No hay publicaciones en cola","Claude carga el calendario de cada semana."); $("next-posts").innerHTML = empty("Sin publicaciones próximas","El calendario se llena cada semana."); return; }
+    let html = "", last = "";
+    posts.forEach(p => {
+      const d = new Date(p.scheduled_at), k = dayKey(d);
+      if (k !== last){ html += `<div class="day">${esc(fDay.format(d))}</div>`; last = k; }
+      html += postCard(p);
+    });
+    $("posts").innerHTML = `<div class="list">${html}</div>`;
+    const upcoming = posts.filter(p => p.channel==="instagram" && new Date(p.scheduled_at) > new Date() && p.status!=="cancelled").slice(0,3);
+    $("next-posts").innerHTML = upcoming.length ? upcoming.map(p => `<div class="card"><div class="meta"><span>${esc(fDay.format(new Date(p.scheduled_at)))} · ${esc(fTime.format(new Date(p.scheduled_at)))}</span><span class="pill ${esc(p.status)}">${esc(PSTATUS[p.status]||p.status)}</span></div><p class="cap" style="-webkit-line-clamp:2">${esc(p.caption)}</p></div>`).join("") : empty("Sin publicaciones próximas","El calendario se llena cada semana.");
+
+    // CRM
+    $("c-total").textContent = sb.crm.total; $("c-leads").textContent = sb.crm.leads; $("c-cli").textContent = sb.crm.clientes; $("c-dev").textContent = sb.crm.dev;
+    const cs = sb.customers;
+    $("customers").innerHTML = cs.length ? `<div class="tablewrap"><table><thead><tr><th>Cliente</th><th>Ciudad</th><th>Etapa</th><th class="num">Pedidos</th><th class="num">Recibidos</th><th class="num">Devueltos</th><th class="num">Compras</th></tr></thead><tbody>${cs.map(c=>`<tr><td>${esc(c.full_name||"Sin nombre")}</td><td>${esc(c.city||"")}</td><td><span class="pill">${esc(c.stage)}</span></td><td class="num">${c.orders_count}</td><td class="num">${c.delivered_count}</td><td class="num">${c.returned_count}</td><td class="num">${money(c.total_spent)}</td></tr>`).join("")}</tbody></table></div>` : empty("Aún no hay clientes","Se llena solo con cada pedido y cada lead.");
+  }
+
+  function approvalCard(a){
+    const p = a.payload || {};
+    let det = "";
+    if (a.type==="product" && p.nombre && p.fuente==="shein"){
+      const links = [p.url_shein].concat(p.evidencia||[]).filter(Boolean).slice(0,4);
+      det = `<div class="detail"><dl>
+        <dt>Precio de venta</dt><dd><b>${money(p.precio_venta)}</b> · envío gratis · pago anticipado (Wompi)</dd>
+        <dt>Precio en Shein</dt><dd>${money(p.precio_shein_cop)}</dd>
+        <dt>Ganancia estimada</dt><dd><b>${money(p.ganancia_estimada)}</b> (${esc(p.margen_estimado_pct)}%) ya descontando envío e importación</dd>
+        <dt>ID en Shein</dt><dd>${esc(p.shein_id||"no aparece")}</dd>
+        <dt>Por qué</dt><dd>${esc(p.por_que||"")}</dd>
+      </dl>
+      ${links.length?`<div style="font-size:12px;margin-top:6px">${links.map((u,i)=>`<a href="${esc(u)}" target="_blank" rel="noopener">${i===0&&p.url_shein?"Ver en Shein":"Video "+(i+(p.url_shein?0:1))}</a>`).join(" · ")}</div>`:""}
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Si lo apruebas: el sistema lo crea en la tienda en borrador, con precio y fotos de Gemini. Tú compras las unidades en Shein y cuando lleguen lo activas; ahí sale en redes.</div></div>`;
+    } else if (a.type==="product" && p.nombre){
+      const links = [p.referencia_precio].concat(p.fuentes||[]).filter(Boolean).slice(0,4);
+      det = `<div class="detail"><dl>
+        <dt>Precio de venta</dt><dd><b>${money(p.precio_venta)}</b></dd>
+        <dt>Costo proveedor</dt><dd>${money(p.costo_estimado)} (estimado)</dd>
+        <dt>Margen estimado</dt><dd><b>${esc(p.margen_estimado_pct)}%</b> con flete y devoluciones</dd>
+        <dt>Puntaje</dt><dd>${esc(p.puntaje)} de 5</dd>
+        <dt>Por qué</dt><dd>${esc(p.por_que||"")}</dd>
+        ${(p.busquedas||[]).length?`<dt>Lo que la gente busca</dt><dd>${[].concat(p.busquedas).slice(0,6).map(q=>"“"+esc(q)+"”").join(" · ")}</dd>`:""}
+        ${p.tiendas_que_lo_publican!=null?`<dt>Otras tiendas que lo venden</dt><dd>${esc(p.tiendas_que_lo_publican)}</dd>`:""}
+        <dt>Buscar en Dropi</dt><dd>${esc([].concat(p.buscar_en_dropi||[]).join(" · "))}</dd>
+      </dl>
+      ${links.length?`<div style="font-size:12px;margin-top:6px">${links.map((u,i)=>`<a href="${esc(u)}" target="_blank" rel="noopener">Fuente ${i+1}</a>`).join(" · ")}</div>`:""}
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Si lo apruebas: impórtalo en Dropify buscando esos términos. El sistema le pone el precio, crea las imágenes y te las trae aquí.</div></div>`;
+    } else if (a.type==="creative" && p.imagen){
+      det = `<div class="detail"><a href="${esc(p.imagen)}" target="_blank" rel="noopener"><img data-thumb="${esc(p.imagen)}" alt="Imagen generada" style="width:100%;max-width:420px;aspect-ratio:4/5;object-fit:cover;border-radius:12px;display:block;background:var(--line)"></a>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Producto: ${esc(p.producto||"")}. Si la apruebas, sale en Instagram y Facebook en 15 a 30 minutos (entre 8 a.m. y 9 p.m.), junto con las otras fotos aprobadas del mismo producto.</div></div>`;
+    } else if (a.type==="creative" && (p.video || p.revisar)){
+      const v = p.revisar || p.video;
+      det = `<div class="detail">
+        <a class="btn confirm" href="${esc(v)}" target="_blank" rel="noopener" style="text-decoration:none;width:max-content">Ver el video</a>
+        <dl><dt>Link</dt><dd><a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a></dd>
+        ${p.portada?`<dt>Portada</dt><dd><a href="${esc(p.portada)}" target="_blank" rel="noopener">Ver portada</a></dd>`:""}
+        ${p.costo_usd!=null?`<dt>Costo de producción</dt><dd>USD ${esc(String(p.costo_usd).replace(".",","))}</dd>`:""}</dl>
+        ${p.copy?`<div><b style="font-size:12px">Texto de la publicación</b><p class="cap" style="-webkit-line-clamp:6">${esc(p.copy)}</p></div>`:""}
+        <div style="font-size:12px;color:var(--muted)">${TENANT===BIZ.aq.tenant?"Si lo apruebas, sale en Instagram y Facebook de AnalytiQ en los próximos minutos.":"Si lo apruebas, queda marcado como listo para usar en redes de Hallazgo."}</div></div>`;
+    } else if (Object.keys(p).length){
+      det = `<div class="detail"><dl>${Object.entries(p).slice(0,10).map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(typeof v==="object"?JSON.stringify(v):v)}</dd>`).join("")}</dl></div>`;
+    }
+    return `<article class="card" data-id="${esc(a.id)}">
+      <div class="meta"><span class="pill pending">${esc(TYPE[a.type]||a.type)}</span><span>${esc(fShort.format(new Date(a.created_at)))}</span></div>
+      <h4 style="margin-top:6px">${esc(a.title)}</h4>
+      ${a.summary?`<div style="color:var(--muted);font-size:13px">${esc(a.summary)}</div>`:""}
+      ${det}
+      <div class="actions" data-actions="${esc(a.id)}">
+        <button class="btn yes" type="button" data-act="ask-approve" data-id="${esc(a.id)}">Aprobar</button>
+        <button class="btn no" type="button" data-act="ask-reject" data-id="${esc(a.id)}">Rechazar</button>
+      </div>
+    </article>`;
+  }
+
+  function postCard(p){
+    const img = (p.media_urls||[])[0];
+    const ch = p.channel==="instagram" ? '<span class="pill ig">Instagram</span>' : '<span class="pill fb">Facebook</span>';
+    const canPause = ["draft","scheduled","pending_approval"].includes(p.status);
+    const canResume = (p.status==="cancelled" || p.status==="failed") && new Date(p.scheduled_at) > new Date();
+    return `<div class="card post">
+      ${img?`<img class="thumb" data-thumb="${esc(img)}" alt="">`:'<div class="thumb"></div>'}
+      <div style="min-width:0">
+        <div class="meta">${ch}<span class="pill ${esc(p.status)}">${esc(PSTATUS[p.status]||p.status)}</span><span>${esc(fTime.format(new Date(p.scheduled_at)))}</span><span>${p.kind==="carousel"?(p.media_urls||[]).length+" imágenes":"1 imagen"}</span></div>
+        <p class="cap">${esc(p.caption)}</p>
+        <div class="tags">${esc((p.hashtags||[]).join(" "))}</div>
+        ${p.error?`<div style="color:var(--bad);font-size:12px;margin-top:4px">${esc(p.error)}</div>`:""}
+        <div class="actions" style="margin-top:8px">
+          <button class="link" type="button" data-act="more">Ver texto completo</button>
+          ${canPause?`<button class="link" type="button" data-act="pause" data-id="${esc(p.id)}">Pausar</button>`:""}
+          ${canResume?`<button class="link" type="button" data-act="resume" data-id="${esc(p.id)}">Reactivar</button>`:""}
+          ${p.permalink?`<a class="link" href="${esc(p.permalink)}" target="_blank" rel="noopener">Ver publicación</a>`:""}
+        </div>
+      </div></div>`;
+  }
+
+  async function runWrite(sql, okMsg){
+    if (busy) return; busy = true;
+    try{
+      await mcp.callTool("Supabase","execute_sql",{project_id:PROJECT, query:sql}, {cache:false});
+      toast(okMsg);
+      await loadSupabase();
+    }catch(err){ banner(errMsg(err,"Supabase"), "bad"); }
+    finally{ busy = false; }
+  }
+
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    const act = b.dataset.act, id = b.dataset.id;
+    if (act==="more"){ const c = b.closest(".card").querySelector(".cap"); c.classList.toggle("open"); b.textContent = c.classList.contains("open")?"Ver menos":"Ver texto completo"; return; }
+    if (id && !UUID.test(id)) return;
+    const box = b.closest("[data-actions]");
+    if (act==="ask-approve" || act==="ask-reject"){
+      const yes = act==="ask-approve";
+      box.innerHTML = `<span style="font-size:13px;align-self:center">${yes?"¿Confirmas que apruebas?":"¿Confirmas que lo rechazas?"}</span>
+        <button class="btn confirm" type="button" data-act="${yes?"approve":"reject"}" data-id="${id}">Sí, ${yes?"aprobar":"rechazar"}</button>
+        <button class="btn no" type="button" data-act="cancel" data-id="${id}">Cancelar</button>`;
+      return;
+    }
+    if (act==="cancel"){ renderSupabase(); return; }
+    if (!mcp) return;
+    if (act==="approve") runWrite(`update public.com_approvals set status='approved', decided_at=now() where id='${id}' and tenant_id='${TENANT}' and status='pending'`, "Aprobado. El sistema lo ejecuta en los próximos 10 minutos.");
+    if (act==="reject") runWrite(`update public.com_approvals set status='rejected', decided_at=now() where id='${id}' and tenant_id='${TENANT}' and status='pending'`, "Rechazado.");
+    if (act==="pause") runWrite(`update public.com_social_posts set status='cancelled' where id='${id}' and tenant_id='${TENANT}' and status in ('draft','scheduled','pending_approval')`, "Publicación pausada.");
+    if (act==="resume") runWrite(`update public.com_social_posts set status='scheduled', attempts=0, error=null where id='${id}' and tenant_id='${TENANT}' and status in ('cancelled','failed') and scheduled_at > now()`, "Publicación reactivada.");
+  });
+
+  // ---------- UGC ----------
+  const UGC_ST = {estudio:"El equipo está trabajando", estudio_tomas:"Grabando tomas", estudio_edicion:"Editando", nuevo:"En cola", guion_listo:"Guion listo", generando:"Grabando tomas", editando:"Editando", por_aprobar:"Listo para revisar", aprobado:"Aprobado", rechazado:"Rechazado", error:"Falló"};
+  const UGC_PILL = {por_aprobar:"pending", aprobado:"approved", rechazado:"rejected", error:"failed"};
+  const ugc = { model:null, products:null, models:[] };
+  const sq = v => "'" + String(v ?? "").replace(/'/g,"''") + "'";
+  // Formulario normalizado por rol: cada bloque le llega al agente que decide eso.
+  // type: one (una opción), many (varias, max), text, area, date, check. def = opción recomendada.
+  const FORM = [
+    {id:"pedido", t:"Tipo de video", who:"Productor", open:true, f:[
+      {k:"formato", l:"Formato", type:"one", def:"pelicula", req:true, o:[["pelicula","Corto tipo película (varias escenas, suspenso)"],["creadora","Creadora hablando (una escena)"],["resena","Reseña honesta"],["unboxing","Unboxing"],["antes_despues","Antes y después"],["tutorial","Tutorial o paso a paso"]]},
+      {k:"duracion", l:"Duración", type:"one", def:"30", req:true, o:[["10","10 s"],["15","15 s"],["30","30 s"]]},
+      {k:"calidad", l:"Calidad de grabación", type:"one", def:"premium", o:[["premium","Premium (Veo normal, la más real)"],["estandar","Estándar (Veo Fast, más barata)"]]}
+    ]},
+    {id:"negocio", t:"Negocio y objetivo", who:"Ejecutiva de cuenta", open:true, f:[
+      {k:"negocio", l:"Nombre del negocio y barrio", type:"text", ph:"Ej: Pizzería La Esquina, Laureles"},
+      {k:"objetivo", l:"Objetivo del video", type:"one", req:true, def:"ventas_whatsapp", o:[["ventas_whatsapp","Ventas por WhatsApp"],["visitas","Visitas al local"],["seguidores","Más seguidores"],["lanzamiento","Lanzamiento de producto"],["promo","Promoción puntual"],["marca","Dar a conocer la marca"]]},
+      {k:"oferta", l:"Oferta, precio o promoción", type:"text", ph:"Ej: Pizza personal a $18.000, 2x1 los martes"},
+      {k:"publico", l:"Público al que le habla", type:"many", max:3, def:["adultos_25_40"], o:[["jovenes_18_25","Jóvenes 18 a 25"],["adultos_25_40","Adultos 25 a 40"],["mamas","Mamás"],["empresarios","Dueños de negocio"],["deportistas","Deportistas"],["estudiantes","Estudiantes"],["mayores_40","Mayores de 40"]]},
+      {k:"cta", l:"Llamado a la acción", type:"one", req:true, def:"comente", o:[["comente","Comente una palabra"],["whatsapp","Escriba al WhatsApp"],["local","Visite el local"],["link","Link en la bio"],["pedido","Haga su pedido hoy"]]},
+      {k:"palabra", l:"Palabra clave o dato del llamado", type:"text", ph:"Ej: PIZZA, o el número de WhatsApp"},
+      {k:"prohibido", l:"Lo que NO se puede decir ni mostrar", type:"text", ph:"Ej: no mencionar la competencia, no prometer envío gratis"}
+    ]},
+    {id:"idea", t:"Idea y gancho", who:"Director", f:[
+      {k:"gancho", l:"Tipo de gancho", type:"one", def:"director", o:[["director","Que lo decida el director"],["revelacion","Revelación con suspenso"],["pregunta","Pregunta provocadora"],["problema","Problema y solución"],["secreto","Secreto o confesión"],["resultado","Mostrar el resultado primero"]]},
+      {k:"tono", l:"Personalidad de la modelo", type:"one", def:"misteriosa", o:[["misteriosa","Misteriosa y segura"],["divertida","Divertida"],["elegante","Elegante"],["cercana","Cercana, como una amiga"],["energica","Enérgica"]]},
+      {k:"ritmo", l:"Ritmo de edición", type:"one", def:"rapido", o:[["tranquilo","Tranquilo"],["medio","Medio"],["rapido","Rápido, cortes cada 2 s"]]}
+    ]},
+    {id:"voz", t:"Guion y acento", who:"Guionista y coach de acento", f:[
+      {k:"trato", l:"Cómo le habla al cliente", type:"one", def:"usted", o:[["usted","Usted"],["tu","Tú"]]},
+      {k:"acento", l:"Acento", type:"one", def:"paisa", o:[["paisa","Paisa (Medellín)"],["neutro","Colombiano neutro (Bogotá)"],["costeno","Costeño"]]},
+      {k:"muletillas", l:"Expresiones permitidas", type:"many", max:4, def:["pues"], o:[["pues","pues"],["parce","parce"],["oiga","oiga"],["si_o_que","¿sí o qué?"],["ninguna","Ninguna"]]},
+      {k:"frases", l:"Frases que deben aparecer tal cual", type:"text", ph:"Ej: el slogan o el nombre de la promo"}
+    ]},
+    {id:"ambientes", t:"Ambientes", who:"Directora de arte", f:[
+      {k:"lugares", l:"Dónde se ve la modelo (hasta 4)", type:"many", max:4, def:["cuarto","carro","cama","centro_comercial"], o:[["cuarto","Cuarto con luz de ventana"],["cama","Acostada en la cama"],["carro","En el carro"],["centro_comercial","Centro comercial"],["cafe","Café"],["cocina","Cocina"],["gimnasio","Gimnasio"],["calle","Calle de Medellín"],["local","En el local del cliente"],["oficina","Oficina"]]},
+      {k:"luz", l:"Luz", type:"one", def:"dorada", o:[["dorada","Hora dorada"],["dia","De día"],["noche","De noche con luces"]]},
+      {k:"fotos_local", l:"Links de fotos del local (opcional)", type:"text", ph:"Pega uno o varios links separados por coma"}
+    ]},
+    {id:"vestuario", t:"Vestuario", who:"Vestuarista", f:[
+      {k:"estilo", l:"Estilo de ropa", type:"one", def:"deportivo", o:[["deportivo","Deportivo"],["casual","Casual"],["elegante","Elegante"],["playero","Playero"],["cliente","Ropa del cliente (si vende ropa)"]]},
+      {k:"colores", l:"Colores", type:"one", def:"rosado", o:[["marca","Colores de la marca"],["rosado","Rosado"],["neutros","Neutros"],["negro","Negro"],["blanco","Blanco"]]},
+      {k:"color_marca", l:"Colores de la marca (si aplica)", type:"text", ph:"Ej: rojo y blanco"},
+      {k:"peinado", l:"Peinado", type:"one", def:"colita", o:[["colita","Colita alta"],["suelto","Pelo suelto"],["mono","Moño"]]},
+      {k:"misma_ropa", l:"Misma ropa en todo el video (recomendado, se ve más real)", type:"check", def:true}
+    ]},
+    {id:"interacciones", t:"Interacciones", who:"Directora de actores", f:[
+      {k:"accion", l:"Qué hace con el producto", type:"many", max:3, def:["muestra"], o:[["muestra","Lo muestra al lente"],["prueba","Lo prueba o lo come"],["abre","Lo abre (unboxing)"],["usa","Lo usa puesto"],["habla","Solo habla de él"],["pantalla","Señala la pantalla del celular"]]},
+      {k:"gestos", l:"Gestos", type:"one", def:"sutiles", o:[["sutiles","Sutiles"],["expresivos","Expresivos"]]},
+      {k:"mirada", l:"Mirada", type:"one", def:"lente", o:[["lente","Siempre al lente"],["natural","Natural, a veces mira a otro lado"]]}
+    ]},
+    {id:"edicion", t:"Edición", who:"Editor y músico", f:[
+      {k:"encuadre", l:"Encuadre", type:"one", def:"cuadrado", o:[["cuadrado","Cuadrado como cine"],["vertical","Vertical completo"]]},
+      {k:"textos", l:"Textos en pantalla", type:"one", def:"ambos", o:[["manuscritos","Manuscritos al lado de la cara"],["grandes","Grandes y condensados"],["ambos","Ambos"],["sin","Sin textos"]]},
+      {k:"musica", l:"Música", type:"one", def:"suspenso", o:[["suspenso","Suspenso con golpe"],["movida","Movida"],["tranquila","Tranquila"],["sin","Sin música"]]},
+      {k:"extras", l:"Extras", type:"many", max:4, def:["logo","fotos"], o:[["logo","Logo animado al final"],["fotos","Fotos flotantes en la revelación"],["foto_producto","Foto del producto en pantalla"],["celular","Celular con la app"]]}
+    ]},
+    {id:"entrega", t:"Entrega", who:"Productor", f:[
+      {k:"redes", l:"Dónde se va a usar", type:"many", max:3, def:["reels"], o:[["reels","Instagram Reels"],["tiktok","TikTok"],["pauta","Pauta en Meta"]]},
+      {k:"variaciones", l:"Variaciones del mismo video", type:"one", def:"1", o:[["1","1"],["2","2 (otro gancho)"],["3","3"]]},
+      {k:"fecha", l:"Fecha en que lo necesita", type:"date"},
+      {k:"notas", l:"Notas finales", type:"area", ph:"Cualquier detalle que no esté arriba"}
+    ]}
+  ];
+  const brief = {};
+  FORM.forEach(b => b.f.forEach(f => { brief[f.k] = f.def !== undefined ? (Array.isArray(f.def) ? f.def.slice() : f.def) : (f.type==="many" ? [] : f.type==="check" ? false : ""); }));
+  const labelOf = (f, v) => (f.o||[]).find(o => o[0]===v)?.[1] || v;
+  function renderForm(){
+    $("ugc-blocks").innerHTML = FORM.map((b,i) => `<details class="card blk"${b.open?" open":""} style="margin-top:12px"><summary><span><b>${i+3}. ${esc(b.t)}</b><small>Lo usa: ${esc(b.who)}</small></span></summary><div class="form" style="margin-top:12px">${b.f.map(f => fieldHtml(f)).join("")}</div></details>`).join("");
+  }
+  function fieldHtml(f){
+    const id = "f-" + f.k;
+    if (f.type==="one" || f.type==="many") return `<div><div class="flabel">${esc(f.l)}${f.req?' <span class="req">*</span>':""}${f.max?` <small>(hasta ${f.max})</small>`:""}</div><div class="seg" role="group" aria-label="${esc(f.l)}" data-field="${f.k}">${f.o.map(o => `<button type="button" data-v="${esc(o[0])}" aria-pressed="${f.type==="one" ? brief[f.k]===o[0] : brief[f.k].includes(o[0])}">${esc(o[1])}</button>`).join("")}</div></div>`;
+    if (f.type==="check") return `<div class="checks"><label><input type="checkbox" id="${id}" data-k="${f.k}"${brief[f.k]?" checked":""}> ${esc(f.l)}</label></div>`;
+    if (f.type==="area") return `<label>${esc(f.l)}<textarea id="${id}" data-k="${f.k}" maxlength="1200" placeholder="${esc(f.ph||"")}"></textarea></label>`;
+    return `<label>${esc(f.l)}<input type="${f.type==="date"?"date":"text"}" id="${id}" data-k="${f.k}" maxlength="300" placeholder="${esc(f.ph||"")}"></label>`;
+  }
+  const fieldByKey = k => { for (const b of FORM) for (const f of b.f) if (f.k===k) return f; };
+  $("ugc-blocks").addEventListener("click", e => {
+    const btn = e.target.closest("[data-v]"); if (!btn) return;
+    const grp = btn.closest("[data-field]"), k = grp.dataset.field, f = fieldByKey(k), v = btn.dataset.v;
+    if (f.type==="one"){ brief[k] = v; }
+    else {
+      let a = brief[k];
+      if (a.includes(v)) a = a.filter(x => x!==v);
+      else { if (v==="ninguna") a = []; else a = a.filter(x => x!=="ninguna"); a.push(v); if (f.max && a.length > f.max) a.shift(); }
+      brief[k] = a;
+    }
+    grp.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(f.type==="one" ? brief[k]===x.dataset.v : brief[k].includes(x.dataset.v))));
+    ugcCost();
+  });
+  $("ugc-blocks").addEventListener("input", e => {
+    const el = e.target.closest("[data-k]"); if (!el) return;
+    brief[el.dataset.k] = el.type==="checkbox" ? el.checked : el.value;
+  });
+  // Tomas de 8 s por video; Veo normal 3,20 USD por toma, Fast 0,80 USD; guion, imágenes y música ~0,35 USD
+  function ugcCost(){
+    const takes = {10:2, 15:2, 30:4}[brief.duracion] || 2;
+    const per = brief.calidad==="premium" ? 3.2 : 0.8;
+    const n = Number(brief.variaciones||1);
+    const usd = (takes*per + 0.35) * (1 + (n-1)*0.6);
+    const cop = Math.round(usd*4000/1000)*1000;
+    $("ugc-cost").textContent = `Costo aproximado: USD ${usd.toFixed(2).replace(".",",")} (unos ${money(cop)} COP) por ${brief.duracion} s en calidad ${brief.calidad==="premium"?"premium":"estándar"}${n>1?`, ${n} variaciones`:""}. Son ${takes} tomas de 8 s.`;
+  }
+  async function ugcProducts(){
+    if (ugc.products) return ugc.products;
+    let list = [];
+    try{ list = await q1(`select coalesce(json_agg(json_build_object('ref',ref,'name',name,'info',description,'img',image_url,'screens',coalesce(array_length(app_screens,1),0)) order by name),'[]'::json) as r from public.ugc_products where tenant_id='${TENANT}' and active`); }catch(e){}
+    if (bizKey==="hz"){
+      try{
+        const res = await mcp.callTool("Shopify","graphql_query",{query:`query { products(first: 50, sortKey: UPDATED_AT, reverse: true, query: "status:active") { nodes { id title description(truncateAt: 500) featuredImage { url } priceRangeV2 { minVariantPrice { amount } } } } }`});
+        const d = payloadOf(res);
+        (d?.products?.nodes||[]).forEach(n => list.push({ref:n.id, name:n.title, info:`${n.description||""} Precio: ${money(n.priceRangeV2?.minVariantPrice?.amount)}. Pago contra entrega.`, img:n.featuredImage?.url||null, screens:0}));
+      }catch(e){ banner(errMsg(e,"Shopify"),"warn"); }
+    }
+    ugc.products = list; return list;
+  }
+  function renderUgcModels(){
+    const ms = ugc.models;
+    $("ugc-mcount").textContent = ms.length ? ms.length + (ms.length===1?" disponible":" disponibles") : "";
+    $("ugc-models").innerHTML = ms.length ? ms.map(m => `<button class="model" type="button" data-model="${esc(m.slug)}" aria-pressed="${ugc.model===m.slug}">
+      <span class="ph">${m.thumb?`<img src="${esc(m.thumb)}" alt="">`:esc((m.name||"?")[0])}</span><b>${esc(m.name)}</b><small>${esc([m.age?m.age+" años":"",m.city].filter(Boolean).join(" · "))}</small></button>`).join("")
+      : empty("Aún no hay modelos listas","Cuando una modelo tenga fotos y voz, aparece aquí.");
+  }
+  async function loadUgc(){
+    const myTenant = TENANT;
+    try{
+      const [ms, rq, prods] = await Promise.all([
+        q1(`select coalesce(json_agg(json_build_object('slug',slug,'name',name,'age',age,'city',city,'thumb',thumb) order by name),'[]'::json) as r from public.ugc_models where ref_photos is not null or (look is not null and voice_id is not null)`),
+        q1(`select coalesce(json_agg(x),'[]'::json) as r from (select id,model_slug,product_name,duration,status,video_url,error,created_at from public.ugc_requests where tenant_id='${TENANT}' order by created_at desc limit 12) x`),
+        ugcProducts()
+      ]);
+      if (myTenant !== TENANT) return;
+      ugc.models = ms; if (!ugc.model && ms.length===1) ugc.model = ms[0].slug;
+      renderUgcModels();
+      const sel = $("ugc-prod"), prev = sel.value;
+      sel.innerHTML = `<option value="">Elige un producto…</option>` + prods.map((p,i)=>`<option value="${i}">${esc(p.name)}</option>`).join("") + `<option value="otro">Otro producto o servicio (escribirlo)</option>`;
+      if (prev && (prods[prev] || prev==="otro")) sel.value = prev;
+      $("ugc-otro").hidden = sel.value !== "otro";
+      $("ugc-list").innerHTML = rq.length ? rq.map(r => `<div class="card"><div class="meta"><span class="pill ${UGC_PILL[r.status]||"scheduled"}">${esc(UGC_ST[r.status]||r.status)}</span><span>${esc(fShort.format(new Date(r.created_at)))}</span><span>${r.duration} s · ${esc(r.model_slug)}</span></div>
+        <h4 style="margin-top:6px">${esc(r.product_name)}</h4>
+        ${r.video_url?`<a href="${esc(r.video_url)}" target="_blank" rel="noopener" style="font-size:13px">Ver el video</a>`:""}
+        ${r.error&&r.status!=="aprobado"?`<div style="font-size:12px;color:var(--bad);margin-top:4px;overflow-wrap:anywhere">${esc(r.error)}</div>`:""}</div>`).join("")
+        : empty("Todavía no has pedido videos","Llena el brief arriba y toca Pedir video.");
+    }catch(err){ banner(err?.code==="parse" ? "La base de datos respondió algo inesperado en UGC: " + (err.raw||"") : errMsg(err,"Supabase"), "bad"); }
+  }
+  $("ugc-prod").addEventListener("change", () => { $("ugc-otro").hidden = $("ugc-prod").value !== "otro"; });
+  $("ugc-models").addEventListener("click", e => {
+    const b = e.target.closest("[data-model]"); if (!b) return;
+    ugc.model = b.dataset.model; renderUgcModels();
+  });
+  // Texto del brief por rol: el director lo recibe como guía y cada agente lee su bloque
+  function briefText(){
+    return FORM.map(b => {
+      const lines = b.f.map(f => {
+        const v = brief[f.k];
+        if (v===undefined || v==="" || (Array.isArray(v) && !v.length)) return null;
+        const txt = Array.isArray(v) ? v.map(x => labelOf(f,x)).join(", ") : f.type==="check" ? (v?"sí":"no") : f.o ? labelOf(f,v) : String(v);
+        return `- ${f.l}: ${txt}`;
+      }).filter(Boolean);
+      return lines.length ? `[${b.who.toUpperCase()}] ${b.t}\n${lines.join("\n")}` : null;
+    }).filter(Boolean).join("\n\n");
+  }
+  $("ugc-send").addEventListener("click", async () => {
+    if (!mcp || busy) return;
+    const sel = $("ugc-prod").value;
+    let p = (ugc.products||[])[sel];
+    if (sel==="otro"){
+      const nm = $("ugc-otro-nombre").value.trim();
+      if (!nm){ toast("Escribe el nombre del producto"); return; }
+      const img = $("ugc-otro-img").value.trim();
+      p = {ref:"manual", name:nm, info:$("ugc-otro-info").value.trim(), img: /^https:\/\//.test(img) ? img : null};
+    }
+    if (!ugc.model){ toast("Elige una modelo"); return; }
+    if (!p){ toast("Elige el producto"); return; }
+    const missing = FORM.flatMap(b => b.f.filter(f => f.req && !brief[f.k]).map(f => f.l));
+    if (missing.length){ $("ugc-missing").hidden = false; $("ugc-missing").textContent = "Falta: " + missing.join(", "); return; }
+    $("ugc-missing").hidden = true;
+    const ex = brief.extras || [];
+    const edit = { formato: brief.formato==="creadora" ? "creadora" : "pelicula", formato_detalle: brief.formato, calidad: brief.calidad, frame: brief.encuadre==="cuadrado" ? "square" : "vertical",
+      textos: brief.textos!=="sin", estilo_textos: brief.textos, musica: brief.musica!=="sin", estilo_musica: brief.musica,
+      logo: ex.includes("logo"), fotos_flotantes: ex.includes("fotos"), foto_producto: ex.includes("foto_producto"), celular_app: ex.includes("celular") };
+    const dur = Number(brief.duracion) || 15;
+    const sql = `insert into public.ugc_requests (tenant_id, model_slug, product_ref, product_name, product_info, product_image, duration, guide, edit, brief, status) values ('${TENANT}', ${sq(ugc.model)}, ${sq(p.ref)}, ${sq(p.name)}, ${sq(p.info)}, ${p.img?sq(p.img):"null"}, ${dur}, ${sq(briefText())}, ${sq(JSON.stringify(edit))}::jsonb, ${sq(JSON.stringify(brief))}::jsonb, 'estudio')`;
+    busy = true; $("ugc-send").disabled = true;
+    try{
+      await mcp.callTool("Supabase","execute_sql",{project_id:PROJECT, query:sql}, {cache:false});
+      toast("Pedido enviado. Te llega a Aprobar cuando esté listo.");
+      ["notas","frases","oferta","palabra","prohibido","fotos_local","color_marca","negocio","fecha"].forEach(k => { brief[k] = ""; const el = $("f-"+k); if (el) el.value = ""; });
+      busy = false; await loadUgc();
+    }catch(err){ banner(errMsg(err,"Supabase"),"bad"); }
+    finally{ busy = false; $("ugc-send").disabled = false; }
+  });
+  renderForm();
+  ugcCost();
+
+  // ---------- Negocio ----------
+  function applyBiz(){
+    document.documentElement.dataset.biz = bizKey;
+    $("biz-sub").textContent = BIZ[bizKey].sub;
+    document.querySelectorAll(".biz button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.biz === bizKey)));
+    $("hz-inicio").hidden = bizKey !== "hz";
+    $("aq-inicio").hidden = bizKey !== "aq";
+    if (bizKey !== "hz"){ $("resumen").hidden = true; }
+  }
+  document.querySelectorAll(".biz button").forEach(b => b.addEventListener("click", () => {
+    if (b.dataset.biz === bizKey) return;
+    bizKey = b.dataset.biz; TENANT = BIZ[bizKey].tenant;
+    try{ localStorage.setItem("torre-biz", bizKey) }catch(e){}
+    applyBiz();
+    ["a-prog","a-pub","a-fail","a-apr"].forEach(id => $(id).textContent = "–");
+    $("approvals").innerHTML = empty("Cargando bandeja", "Aquí aparece lo que necesita tu aprobación.");
+    $("history").innerHTML = "";
+    $("posts").innerHTML = empty("Cargando calendario", "Publicaciones de Instagram y Facebook.");
+    $("next-posts").innerHTML = empty("Cargando publicaciones", "Se leen de la base de datos.");
+    $("customers").innerHTML = "";
+    ugc.products = null;
+    if (mcp){ loadSupabase(); if (!$("p-ugc").hidden) loadUgc(); }
+  }));
+  applyBiz();
+
+  // ---------- Shopify ----------
+  const now = new Date(), todayKey = dayKey(now);
+  const monthStart = todayKey.slice(0,8) + "01";
+  const QUERY = `query Torre($q: String) { orders(first: 100, sortKey: CREATED_AT, reverse: true, query: $q) { nodes { name tags createdAt cancelledAt displayFulfillmentStatus totalPriceSet { shopMoney { amount } } shippingAddress { city } lineItems(first: 3) { nodes { title quantity } } } } }`;
+  const INPUT = { query: QUERY, variables: { q: "created_at:>=" + monthStart } };
+  function payloadOf(result){ let p = result?.payload; if (typeof p === "string"){ try{ p = JSON.parse(p) }catch(e){} } return p?.data || p; }
+  function renderShopify(d){
+    const orders = (d.orders?.nodes||[]).filter(o => !(o.tags||[]).includes("prueba-sistema") && !o.cancelledAt);
+    const amt = o => Number(o.totalPriceSet?.shopMoney?.amount||0);
+    const today = orders.filter(o => dayKey(new Date(o.createdAt))===todayKey);
+    const month = orders.reduce((s,o)=>s+amt(o),0);
+    const pend = orders.filter(o => o.displayFulfillmentStatus!=="FULFILLED");
+    $("k-hoy").textContent = today.length;
+    $("k-mes").textContent = money(month);
+    $("k-desp").textContent = pend.length;
+    $("g-txt").textContent = `${money(month)} de ${money(GOAL)}`;
+    $("g-bar").style.width = Math.min(100, month/GOAL*100).toFixed(1) + "%";
+    $("o-count").textContent = orders.length ? orders.length + " este mes" : "";
+    $("orders").innerHTML = orders.length ? orders.slice(0,6).map(o => `<div class="card"><div class="meta"><b style="color:var(--ink)">${esc(o.name)}</b><span>${esc(fShort.format(new Date(o.createdAt)))}</span><span>${esc(o.shippingAddress?.city||"")}</span><span class="pill">${o.displayFulfillmentStatus==="FULFILLED"?"Despachado":"Por despachar"}</span></div><div style="display:flex;justify-content:space-between;gap:8px;margin-top:6px"><span style="min-width:0;overflow-wrap:anywhere">${esc((o.lineItems?.nodes||[]).map(l=>l.quantity+" × "+l.title).join(", "))}</span><b style="font-variant-numeric:tabular-nums">${money(amt(o))}</b></div></div>`).join("") : empty("Aún no hay pedidos este mes","Cada pedido nuevo aparece aquí con ciudad, producto y estado.");
+  }
+
+  function markUpdated(){ $("dot").classList.add("live"); $("updated").textContent = "Actualizado " + fTime.format(new Date()); }
+
+  (async () => {
+    mcp = window.claude ? await window.claude.use("mcp") : null;
+    if (!mcp){
+      $("updated").textContent = "Ábrela en claude.ai";
+      banner("La Torre lee tu tienda y tu base de datos con los conectores de claude.ai. Fuera de claude.ai no puede conectarse.", "bad");
+      $("refresh").hidden = true; return;
+    }
+    mcp.watchTool("Shopify","graphql_query",INPUT, ev => {
+      if (ev.type==="data"){ const d = payloadOf(ev.result); if (d && d.orders) { renderShopify(d); markUpdated(); } }
+      else banner(errMsg(ev.error,"Shopify"), "warn");
+    }, { refetchInterval: 120000, cache: { staleTime: 60000 } });
+    loadSupabase();
+    if (!$("p-ugc").hidden) loadUgc();
+    setInterval(() => { if (!document.hidden && !busy){ loadSupabase(); if (!$("p-ugc").hidden) loadUgc(); } }, 120000);
+  })();
+
+  $("refresh").addEventListener("click", async () => {
+    if (!mcp) return;
+    $("updated").textContent = "Actualizando…";
+    try{ await mcp.invalidate("Shopify","graphql_query",INPUT); }catch(e){}
+    loadSupabase();
+  });
+})();
+</script>
+
+</body></html>

@@ -55,7 +55,17 @@ async function agente(system: string, user: string, req: any, step: string) {
   const cost = ((u.input_tokens || 0) * 2 + (u.output_tokens || 0) * 10) / 1e6;
   await sb.from("ugc_generations").insert({ order_id: req.order_id, model_slug: req.model_slug, step, quality: "final", provider: "anthropic",
     ai_model: MODEL, kind: "text", units: 1, input_tokens: u.input_tokens, output_tokens: u.output_tokens, cost_usd: Number(cost.toFixed(4)), ok: true, prompt: user.slice(0, 4000) });
-  return JSON.parse(raw.split("—").join(". ").split("–").join(". "));
+  const out = JSON.parse(raw.split("—").join(". ").split("–").join(". "));
+  // A veces un agente devuelve una lista como texto (y con un cierre de mas): se convierte a lista de verdad
+  for (const k of Object.keys(out)) {
+    const v = out[k];
+    if (typeof v !== "string") continue;
+    const t = v.trim();
+    if (!(t.startsWith("[") || t.startsWith("{"))) continue;
+    const end = t.lastIndexOf(t.startsWith("[") ? "]" : "}");
+    for (const cand of [t, t.slice(0, end + 1)]) { try { out[k] = JSON.parse(cand); break; } catch (_) { /* sigue */ } }
+  }
+  return out;
 }
 
 async function stepEstudio(req: any) {

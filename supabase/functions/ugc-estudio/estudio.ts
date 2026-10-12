@@ -110,7 +110,7 @@ Personalidad pedida: ${c.label("tono")}. Producto: ${c.prod}.`,
 // Camarografa: arma la orden de cada toma para Veo con todo lo que decidio el equipo
 export function takePrompt(r: any, i: number) {
   const n = i + 1;
-  const pick = (arr: any[]) => (arr || []).find((t: any) => Number(t.n) === n) || (arr || [])[i] || {};
+  const pick = (arr: any) => { const a = Array.isArray(arr) ? arr : []; return a.find((t: any) => Number(t?.n) === n) || a[i] || {}; };
   const g = pick(r.acento?.tomas) as any, g0 = pick(r.guionista?.tomas) as any;
   const linea = String(g.linea || g0.linea || "").replace(/"/g, "'");
   const beats = (g.beats || g0.beats || []).map((b: any) => `${b.desde}-${b.hasta}s she says: "${String(b.dice || "").replace(/"/g, "'")}"`).join(" ");
