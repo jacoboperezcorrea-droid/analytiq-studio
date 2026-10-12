@@ -61,6 +61,17 @@ def voice_track(spec, clip_paths, workdir):
         if ci is not None and ci in fixed and b.get("audio", True):
             parts.append((fixed[ci], b.get("start", 0), sc["dur"], t))
         t += sc["dur"]
+    # Whoosh en los cambios de escena marcados con "whoosh": true (ritmo de creadora)
+    wh = None
+    t3 = 0.0
+    for sc in spec["scenes"]:
+        if sc.get("whoosh"):
+            if wh is None:
+                wh = os.path.join(workdir, "whoosh.wav")
+                subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "anoisesrc=c=pink:r=44100:d=0.45:a=0.6",
+                                "-af", "highpass=f=400,lowpass=f=6000,afade=t=in:d=0.3:curve=exp,afade=t=out:st=0.3:d=0.15,volume=0.35", wh], check=True)
+            parts.append((wh, 0, 0.45, max(0.0, t3 - 0.3)))
+        t3 += sc["dur"]
     # Escenas con voz en off propia (TTS de la modelo), por ejemplo la explicacion en graficos
     t2 = 0.0
     for k, sc in enumerate(spec["scenes"]):
@@ -104,7 +115,7 @@ def build(spec, workdir, clip_url=None, music_url=None):
         music = download(music_url, os.path.join(workdir, "music.bin")) if music_url else None
         final = os.path.join(workdir, "reel.mp4")
         voice = voice_track(spec, clip_paths, workdir) if spec.get("voice") and has_clips else None
-        compose.compose(anim, final, clip=clip, music=music, voice=voice)
+        compose.compose(anim, final, clip=clip, music=music, voice=voice, music_under_voice=float(spec.get("music_volume", 0.12)))
         if not os.path.exists(cover):
             render.still(spec, spec.get("cover_at", 2.5), cover)
         outs = [(final, "video/mp4"), (cover, "image/png")]

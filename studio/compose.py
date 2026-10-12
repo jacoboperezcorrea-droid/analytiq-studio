@@ -9,7 +9,7 @@ def probe(path):
     has_audio = any(s.get("codec_type") == "audio" for s in j.get("streams", []))
     return dur, has_audio
 
-def compose(anim, out, clip=None, music=None, clip_volume=0.6, music_volume=0.35, xfade=0.4, voice=None):
+def compose(anim, out, clip=None, music=None, clip_volume=0.6, music_volume=0.35, xfade=0.4, voice=None, music_under_voice=0.12):
     """voice: pista de voz ya alineada a la animacion (reels de modelos UGC). Si hay voz, la musica baja."""
     anim_dur, _ = probe(anim)
     inputs = ["-i", anim]
@@ -19,7 +19,7 @@ def compose(anim, out, clip=None, music=None, clip_volume=0.6, music_volume=0.35
         fc.append("[0:v]fps=30,setsar=1,format=yuv420p[v]")
         total = anim_dur
         fc.append(f"[1:a]aresample=44100,aformat=channel_layouts=stereo,apad,atrim=0:{total:.3f}[ca]")
-        music_volume = min(music_volume, 0.12)
+        music_volume = min(music_volume, music_under_voice)
     elif clip:
         clip_dur, clip_audio = probe(clip)
         inputs += ["-i", clip]
