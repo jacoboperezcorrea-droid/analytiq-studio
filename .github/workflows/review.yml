@@ -28,6 +28,11 @@ jobs:
           i=0
           for u in ${{ inputs.urls }}; do
             i=$((i+1))
+            case "$u" in *.mp3|*.wav)
+              curl -sfL "$u" -o review/${{ inputs.tag }}/a$i.mp3
+              echo "a$i $u" >> review/${{ inputs.tag }}/info.txt
+              continue;;
+            esac
             case "$u" in *.jpg|*.jpeg|*.png)
               curl -sfL "$u" -o img$i
               ffmpeg -loglevel error -i img$i -vf scale=720:-1 review/${{ inputs.tag }}/img${i}.jpg
