@@ -65,7 +65,7 @@ def voice_track(spec, clip_paths, workdir):
     t2 = 0.0
     for k, sc in enumerate(spec["scenes"]):
         if sc.get("audio"):
-            parts.append((download(sc["audio"], os.path.join(workdir, f"vo_{k}.mp3")), 0, sc["dur"] / speed, t2))
+            parts.append((download(sc["audio"], os.path.join(workdir, f"vo_{k}.mp3")), 0, sc["dur"], t2))
         t2 += sc["dur"]
     if not parts:
         return None
