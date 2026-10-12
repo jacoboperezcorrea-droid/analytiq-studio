@@ -1,0 +1,42 @@
+name: Revisar video
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: "URLs de video separadas por espacio"
+        required: true
+      tag:
+        description: "Nombre de la carpeta de revision"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Sacar cuadros
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          mkdir -p review/${{ inputs.tag }}
+          i=0
+          for u in ${{ inputs.urls }}; do
+            i=$((i+1))
+            curl -sfL "$u" -o v$i.mp4
+            d=$(ffprobe -v error -show_entries format=duration -of csv=p=0 v$i.mp4)
+            ffmpeg -loglevel error -i v$i.mp4 -vf "fps=2,scale=270:-1,tile=8x8" -frames:v 1 review/${{ inputs.tag }}/v${i}_sheet.jpg
+            ffmpeg -loglevel error -i v$i.mp4 -vn -ac 1 -ar 22050 -b:a 48k review/${{ inputs.tag }}/v${i}.mp3 || true
+            echo "v$i $u $d" >> review/${{ inputs.tag }}/info.txt
+          done
+      - name: Subir a la rama review
+        run: |
+          git config user.name "analytiq-bot"; git config user.email "bot@analytiq.local"
+          git checkout -b review-tmp
+          git add review && git commit -qm "Revision ${{ inputs.tag }}"
+          git push -f origin review-tmp:review
