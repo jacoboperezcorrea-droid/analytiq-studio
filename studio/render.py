@@ -473,11 +473,18 @@ def treat(frame, progress, scrim, zoom, punch=1.0, tint=None, fx=0.5, fy=0.5):
 
 SQ_Y = 420  # formato cuadrado: el video ocupa 1080x1080 desde y=420, franjas negras arriba y abajo
 
-def boxed(frame):
-    """Pone un cuadro 1080x1080 en el centro de un lienzo vertical negro (look de video cuadrado en Reels)."""
+def boxed(frame, fill=None):
+    """Pone un cuadro 1080x1080 en el centro de un lienzo vertical 1080x1920.
+    fill=None: franjas negras (look de video cuadrado). fill="blur": el mismo cuadro ampliado y desenfocado de fondo,
+    para que llene toda la pantalla de Reels sin estirar el video principal."""
     if frame.size == (1080, 1920):
         return frame
-    im = Image.new("RGB", (1080, 1920), (0, 0, 0))
+    if fill == "blur":
+        from PIL import ImageFilter, ImageEnhance
+        small = frame.resize((96, 96), Image.BILINEAR).crop((21, 0, 75, 96)).filter(ImageFilter.GaussianBlur(4))
+        im = ImageEnhance.Brightness(small.resize((1080, 1920), Image.BICUBIC)).enhance(0.55)
+    else:
+        im = Image.new("RGB", (1080, 1920), (0, 0, 0))
     im.paste(frame, (0, SQ_Y))
     return im
 
@@ -503,7 +510,8 @@ def render_reel(spec, out_mp4, fps=30, clips=None, cover=None):
     cover_at = spec.get("cover_at", 2.5)
     p = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
                           "-s", "1080x1920", "-r", str(fps), "-i", "-",
-                          "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-preset", "medium", out_mp4],
+                          "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", str(spec.get("crf", 18)), "-preset", "slow" if spec.get("crf", 18) < 18 else "medium",
+                          "-profile:v", "high", "-movflags", "+faststart", out_mp4],
                          stdin=subprocess.PIPE)
     reader, cur_scene = None, None
     for i in range(int(round(total * fps))):
@@ -520,7 +528,7 @@ def render_reel(spec, out_mp4, fps=30, clips=None, cover=None):
                 cur_scene = si
             fr = reader.next()
             if fr is not None:
-                bg = boxed(treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06), b.get("punch", 1.0), DARK if spec.get("end_dark") else None, b.get("fx", 0.5), b.get("fy", 0.5)))
+                bg = boxed(fill=spec.get("fill"), frame=treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06), b.get("punch", 1.0), DARK if spec.get("end_dark") else None, b.get("fx", 0.5), b.get("fy", 0.5)))
                 if spec.get("transition") == "whip":
                     scs = spec["scenes"]
                     vid = lambda j: 0 <= j < len(scs) and scs[j].get("bg") is not None
