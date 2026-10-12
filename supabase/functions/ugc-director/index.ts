@@ -140,13 +140,18 @@ async function anthropic(system: string, user: string, req: any, step: string) {
     // La respuesta sale por una herramienta forzada: asi el JSON siempre llega valido (comillas escapadas)
     body: JSON.stringify({ model: MODEL, max_tokens: 6000, system, messages: [{ role: "user", content: user }],
       tools: [{ name: "entregar_guion", description: "Entrega el guion con la estructura JSON pedida en las instrucciones.", input_schema: { type: "object", additionalProperties: true } }],
-      tool_choice: { type: "tool", name: "entregar_guion" } }),
+      tool_choice: { type: "auto" } }),
   });
   const j = await r.json();
   if (!r.ok) throw new Error("Claude API: " + (j.error?.message || r.status));
   const tool = (j.content || []).find((c: any) => c.type === "tool_use");
-  if (!tool?.input) throw new Error("Claude no devolvio el guion");
-  const m = [JSON.stringify(tool.input)];
+  let m: string[] | null = tool?.input ? [JSON.stringify(tool.input)] : null;
+  if (!m) {
+    const txt = (j.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("");
+    const t = txt.match(/\{[\s\S]*\}/);
+    if (!t) throw new Error("Claude no devolvio el guion");
+    m = [t[0]];
+  }
   const u = j.usage || {};
   const cost = ((u.input_tokens || 0) * 2 + (u.output_tokens || 0) * 10) / 1e6;
   await sb.from("ugc_generations").insert({ order_id: req.order_id, model_slug: req.model_slug, step, quality: "final", provider: "anthropic",
@@ -165,7 +170,7 @@ Producto: ${req.product_name}.
 Informacion del producto: ${req.product_info || "sin detalle"}
 Duracion total: ${req.duration} segundos. ${plan.clips.length} ambientes: ${amb}.
 Guia del pedido: ${req.guide || "sin guia adicional, usa tu criterio"}`;
-  const out = await anthropic(SISTEMA_FILM, user, req, "guion_pelicula");
+  const out = await anthropic(SISTEMA_FILM + "\n\nEntrega el guion llamando la herramienta entregar_guion (no lo escribas como texto). Dentro de los textos no uses comillas dobles.", user, req, "guion_pelicula");
   if (!Array.isArray(out.escenas) || out.escenas.length < plan.clips.length) throw new Error("Guion de pelicula incompleto");
   out.escenas = out.escenas.slice(0, plan.clips.length);
   out.formato = "pelicula";
