@@ -39,6 +39,15 @@ GRID = (16, 57, 89)
 MARGIN = 90
 BOX_PAD = 40
 
+EXTRA_FONTS = {"anton": "anton-latin-400-normal.woff", "caveat": "caveat-latin-700-normal.woff"}
+_xf = {}
+def xfont(name, size):
+    """Fuentes de creadora: anton (condensada) y caveat (manuscrita)."""
+    k = (name, max(8, int(size)))
+    if k not in _xf:
+        _xf[k] = ImageFont.truetype(os.path.join(HERE, "..", "fonts", EXTRA_FONTS[name]), k[1])
+    return _xf[k]
+
 _fc = {}
 def font(weight, size):
     k = (int(weight), max(8, int(size)))
@@ -241,12 +250,12 @@ class Canvas:
                 lt = (local_t - i * 0.12) if local_t is not None else 9
                 if lt <= 0: continue
                 sc = max(0.05, ease_back(lt / 0.32))
-                f = font(900, size * sc)
+                f = xfont(it["font"], size * sc) if it.get("font") in EXTRA_FONTS else font(900, size * sc)
                 fa = clamp(a * min(1.0, lt / 0.12))
                 fill = self.paint(col(cname), fa)
                 stroke = (0, 0, 0, int(255 * fa * 0.9)) if self.layer is not None else (0, 0, 0)
-                d.text((x, y0 + i * lh + lh / 2), txt.upper(), font=f, fill=fill, anchor=h + "m",
-                       stroke_width=max(2, int(size * 0.07)), stroke_fill=stroke)
+                d.text((x, y0 + i * lh + lh / 2), txt if it.get("font") == "caveat" else txt.upper(), font=f, fill=fill, anchor=h + "m",
+                       stroke_width=max(2, int(size * (0.025 if it.get("font") in EXTRA_FONTS else 0.07))), stroke_fill=stroke)
             return
         c = self.paint(col(it.get("color", "white")), a)
         if t == "text":
