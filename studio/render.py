@@ -441,7 +441,7 @@ class ClipReader:
         # cx: centro horizontal del recorte (0 izquierda, 0.5 centro, 1 derecha), util para clips horizontales de Veo
         self.size = size
         w, h = size
-        vf = ("setpts=PTS/%s," % speed if speed != 1 else "") + "scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d:(iw-%d)*%s:(ih-%d)/2,fps=%d" % (w, h, w, h, w, cx, h, fps)
+        vf = ("setpts=PTS/%s," % speed if speed != 1 else "") + "scale=%d:%d:force_original_aspect_ratio=increase:flags=lanczos,crop=%d:%d:(iw-%d)*%s:(ih-%d)/2,unsharp=5:5:0.55:5:5:0.0,fps=%d" % (w, h, w, h, w, cx, h, fps)
         self.p = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-ss", str(start), "-i", path, "-t", str(dur * speed + 0.5),
                                    "-vf", vf,
                                    "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
@@ -465,7 +465,10 @@ def treat(frame, progress, scrim, zoom, punch=1.0, tint=None, fx=0.5, fy=0.5):
         w, h = int(W0 / z), int(H0 / z)
         # fx, fy: punto de foco del acercamiento (0.5 = centro); sirve para sacar del cuadro un brazo o un objeto
         x0 = int(min(max(W0 * fx - w / 2, 0), W0 - w)); y0 = int(min(max(H0 * fy - h / 2, 0), H0 - h))
-        frame = frame.crop((x0, y0, x0 + w, y0 + h)).resize((W0, H0), Image.BILINEAR)
+        frame = frame.crop((x0, y0, x0 + w, y0 + h)).resize((W0, H0), Image.LANCZOS)
+        if z > 1.2:
+            from PIL import ImageFilter
+            frame = frame.filter(ImageFilter.UnsharpMask(radius=2, percent=60, threshold=2))
     return Image.blend(frame, Image.new("RGB", (W0, H0), tint or BG), scrim)
 
 SQ_Y = 420  # formato cuadrado: el video ocupa 1080x1080 desde y=420, franjas negras arriba y abajo

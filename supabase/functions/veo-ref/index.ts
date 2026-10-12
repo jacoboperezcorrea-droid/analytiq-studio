@@ -24,7 +24,8 @@ Deno.serve(async (req) => {
     if (!key) throw new Error("No hay llave de Gemini");
     const model = b.model || "veo-3.1-generate-preview";
     if (model.includes("lite")) throw new Error("lite no soporta referencias");
-    const resolution = b.resolution || "720p";
+    // 1080p siempre: el recorte cuadrado queda nativo (1080x1080) sin estirar; en Veo normal cuesta igual que 720p
+    const resolution = "1080p";
     const refs = await Promise.all((b.refs || []).slice(0, 3).map(ref));
     const instance: any = { prompt: b.prompt };
     if (refs.length) instance.referenceImages = refs;
