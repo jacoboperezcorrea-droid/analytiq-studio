@@ -28,6 +28,12 @@ jobs:
           i=0
           for u in ${{ inputs.urls }}; do
             i=$((i+1))
+            case "$u" in *.jpg|*.jpeg|*.png)
+              curl -sfL "$u" -o img$i
+              ffmpeg -loglevel error -i img$i -vf scale=720:-1 review/${{ inputs.tag }}/img${i}.jpg
+              echo "img$i $u" >> review/${{ inputs.tag }}/info.txt
+              continue;;
+            esac
             curl -sfL "$u" -o v$i.mp4
             d=$(ffprobe -v error -show_entries format=duration -of csv=p=0 v$i.mp4)
             ffmpeg -loglevel error -i v$i.mp4 -vf "fps=2,scale=270:-1,tile=8x8" -frames:v 1 review/${{ inputs.tag }}/v${i}_sheet.jpg
