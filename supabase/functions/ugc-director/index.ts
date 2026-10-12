@@ -324,14 +324,26 @@ async function stepNewFilm(req: any, model: any, orderId: string) {
     if (errs.length) throw new Error("Imagenes: " + errs[0]);
     return { id: req.id, fase: "imagenes" };
   }
-  // Fase 3: un clip de Veo por ambiente
-  const ids: string[] = [];
+  // Fase 3: un clip de Veo por ambiente. Veo limita cuantos clips arrancan por minuto:
+  // cada clip iniciado queda guardado en su escena y, si Veo pide esperar, el siguiente tick sigue donde quedo.
   for (let i = 0; i < plan.clips.length; i++) {
     const e = script.escenas[i];
-    const r = await callFn("ugc-studio", { action: "veo_start", slug: req.model_slug, step: `pedido_${req.id.slice(0, 8)}_amb${i + 1}`, seconds: plan.clips[i],
-      resolution: "720p", image_url: e.img, order_id: orderId, prompt: filmVeoPrompt(e), negative: NEG });
-    ids.push(r.generation_id);
+    if (e.gen) continue;
+    try {
+      const r = await callFn("ugc-studio", { action: "veo_start", slug: req.model_slug, step: `pedido_${req.id.slice(0, 8)}_amb${i + 1}`, seconds: plan.clips[i],
+        resolution: "720p", image_url: e.img, order_id: orderId, prompt: filmVeoPrompt(e), negative: NEG });
+      e.gen = r.generation_id;
+      await setReq(req.id, { script });
+    } catch (err) {
+      const msg = String((err as Error).message || err);
+      if (/quota|exceeded|rate|RESOURCE_EXHAUSTED|high demand/i.test(msg)) {
+        await setReq(req.id, { script, error: `Veo pidio esperar, ${i} de ${plan.clips.length} tomas iniciadas` });
+        return { id: req.id, fase: "tomas", iniciadas: i };
+      }
+      throw err;
+    }
   }
+  const ids = script.escenas.slice(0, plan.clips.length).map((e: any) => e.gen);
   await setReq(req.id, { clip_ids: ids, status: "generando", error: null });
   return { id: req.id, status: "generando", clips: ids.length };
 }
