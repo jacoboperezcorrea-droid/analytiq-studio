@@ -61,6 +61,12 @@ def voice_track(spec, clip_paths, workdir):
         if ci is not None and ci in fixed and b.get("audio", True):
             parts.append((fixed[ci], b.get("start", 0), sc["dur"], t))
         t += sc["dur"]
+    # Escenas con voz en off propia (TTS de la modelo), por ejemplo la explicacion en graficos
+    t2 = 0.0
+    for k, sc in enumerate(spec["scenes"]):
+        if sc.get("audio"):
+            parts.append((download(sc["audio"], os.path.join(workdir, f"vo_{k}.mp3")), 0, sc["dur"] / speed, t2))
+        t2 += sc["dur"]
     if not parts:
         return None
     inputs, fc = [], []

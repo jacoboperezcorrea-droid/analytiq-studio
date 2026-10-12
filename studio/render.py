@@ -221,6 +221,17 @@ class Canvas:
             else:
                 self.im.paste(im, (px, py), im)
             return
+        if t == "logo":
+            # Logo animado: entra con rebote y queda con un leve respiro
+            lt = local_t if local_t is not None else 9
+            sc = max(0.05, ease_back(lt / 0.5)) * (1 + 0.015 * math.sin(lt * 3))
+            lg = logo(max(10, int(it.get("w", 520) * sc)))
+            if lg is None: return
+            lg = lg.copy(); lg.putalpha(lg.getchannel("A").point(lambda v: int(v * clamp(a))))
+            px = (self.w - lg.width) // 2; py = int(it.get("y", 700) - lg.height / 2)
+            if self.layer is not None: self.layer.alpha_composite(lg, (max(0, px), max(0, py)))
+            else: self.im.paste(lg, (px, py), lg)
+            return
         if t == "cap":
             size = it.get("size", 96)
             lines = it["lines"]
@@ -372,9 +383,26 @@ def scene_at(spec, t):
             return si, sc, t - start
         start += sc["dur"]
 
+DARK = (10, 10, 12)
+_dark_bg = {}
+def dark_bg(t):
+    """Fondo oscuro de explicacion (estilo motion graphics): negro con puntos finos que se mueven lento."""
+    k = int(t * 10) % 60
+    if k not in _dark_bg:
+        im = Image.new("RGB", (1080, 1920), DARK)
+        d = ImageDraw.Draw(im)
+        off = k * 1.5
+        for gx in range(0, 1080 + 60, 60):
+            for gy in range(0, 1920 + 60, 60):
+                d.ellipse([gx - 1.2 + off % 60, gy - 1.2, gx + 1.2 + off % 60, gy + 1.2], fill=(38, 38, 44))
+        _dark_bg[k] = im
+    return _dark_bg[k].copy()
+
 def reel_frame(spec, t, bg=None):
     W, H = 1080, 1920
     si, sc, lt = scene_at(spec, t)
+    if bg is None and sc.get("dark"):
+        bg = dark_bg(t)
     cv = Canvas(W, H, brand=sc.get("brand", spec.get("brand", True)), grid_offset=t * 12, bg=bg)
     dur = sc["dur"]
     last = si == len(spec["scenes"]) - 1
@@ -385,13 +413,13 @@ def reel_frame(spec, t, bg=None):
             a *= 1 - ease_out((lt - (dur - 0.3)) / 0.3)
         if it.get("until") is not None:
             a *= 1 - ease_out((lt - (it["until"] - 0.12)) / 0.12)
-        dy = 0 if it["t"] in ("pop", "bar", "line", "phone", "cap") else (1 - ease_out((lt - at) / 0.35)) * 40
+        dy = 0 if it["t"] in ("pop", "bar", "line", "phone", "cap", "logo") else (1 - ease_out((lt - at) / 0.35)) * 40
         cv.draw(it, a, dy, lt - at)
     im = cv.final()
     total = sum(s["dur"] for s in spec["scenes"])
     if t > total - 0.4:
         k = clamp((t - (total - 0.4)) / 0.4)
-        im = Image.blend(im, Image.new("RGB", (W, H), BG), k)
+        im = Image.blend(im, Image.new("RGB", (W, H), DARK if spec.get("end_dark") else BG), k)
     return im
 
 class ClipReader:
@@ -412,7 +440,7 @@ class ClipReader:
         try: self.p.kill()
         except Exception: pass
 
-def treat(frame, progress, scrim, zoom, punch=1.0):
+def treat(frame, progress, scrim, zoom, punch=1.0, tint=None):
     """Zoom suave + capa oscura de marca para que el texto se lea sobre el video.
     punch: zoom fijo de corte (1.15 = plano mas cerrado), el golpe de zoom tipico de creadores."""
     if zoom or punch != 1.0:
@@ -420,7 +448,7 @@ def treat(frame, progress, scrim, zoom, punch=1.0):
         w, h = int(1080 / z), int(1920 / z)
         x0, y0 = (1080 - w) // 2, (1920 - h) // 2
         frame = frame.crop((x0, y0, x0 + w, y0 + h)).resize((1080, 1920), Image.BILINEAR)
-    return Image.blend(frame, Image.new("RGB", (1080, 1920), BG), scrim)
+    return Image.blend(frame, Image.new("RGB", (1080, 1920), tint or BG), scrim)
 
 WHIP = 0.16  # segundos de barrido a cada lado del corte
 
@@ -459,7 +487,7 @@ def render_reel(spec, out_mp4, fps=30, clips=None, cover=None):
                 cur_scene = si
             fr = reader.next()
             if fr is not None:
-                bg = treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06), b.get("punch", 1.0))
+                bg = treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06), b.get("punch", 1.0), DARK if spec.get("end_dark") else None)
                 if spec.get("transition") == "whip":
                     scs = spec["scenes"]
                     vid = lambda j: 0 <= j < len(scs) and scs[j].get("bg") is not None
