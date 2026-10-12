@@ -39,6 +39,7 @@ jobs:
             ffmpeg -loglevel error -i v$i.mp4 -vf "fps=2,scale=270:-1,tile=8x8" -frames:v 1 review/${{ inputs.tag }}/v${i}_sheet.jpg
             ffmpeg -loglevel error -i v$i.mp4 -vn -ac 1 -ar 22050 -b:a 48k review/${{ inputs.tag }}/v${i}.mp3 || true
             echo "v$i $u $d" >> review/${{ inputs.tag }}/info.txt
+            ffmpeg -i v$i.mp4 -af silencedetect=noise=-32dB:d=0.25 -f null - 2>&1 | grep -o "silence_[a-z]*: [0-9.]*" | tr '\n' ' ' > review/${{ inputs.tag }}/v${i}_silencios.txt || true
           done
       - name: Subir a la rama review
         run: |
