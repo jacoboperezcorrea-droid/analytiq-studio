@@ -14,6 +14,10 @@ Elementos soportados en cada escena o slide (campo "t"):
   line    linea divisoria
   box     recuadro con borde
   phone   celular flotando con una pantalla  src="assets/.../pantalla.png", w=ancho del celular, y=centro
+  cap     subtitulo de creadora: palabras grandes en mayusculas apiladas, entran con rebote linea a linea
+          lines=[["TU HAMBURGUESA","white"],["Y TU MARCA","yellow"]], size, y=centro del bloque
+Opciones de escena (reel): "brand": false oculta el logo en esa escena; "until" en un elemento lo saca antes.
+Opcion de spec: "transition": "whip" = barrido rapido con desenfoque y destello entre escenas de video.
 Posiciones: x = "L" (izquierda), "C" (centro), "R" (derecha) o un numero; y en pixeles.
 Tiempos (solo reel): "at" = segundo dentro de la escena en que aparece el elemento.
 """
@@ -28,6 +32,7 @@ COLORS = {
     "white": (255, 255, 255),
     "orange": (230, 101, 33),  # Naranja Core #E66521, solo acentos
     "dato": (75, 160, 199),    # Azul Dato #4BA0C7
+    "yellow": (255, 214, 10),  # acento de subtitulos de creadora
     "bg": BG,
 }
 GRID = (16, 57, 89)
@@ -216,6 +221,22 @@ class Canvas:
             else:
                 self.im.paste(im, (px, py), im)
             return
+        if t == "cap":
+            size = it.get("size", 96)
+            lines = it["lines"]
+            lh = size * 1.02
+            y0 = it.get("y", 1350) - len(lines) * lh / 2
+            for i, (txt, cname) in enumerate(lines):
+                lt = (local_t - i * 0.12) if local_t is not None else 9
+                if lt <= 0: continue
+                sc = max(0.05, ease_back(lt / 0.32))
+                f = font(900, size * sc)
+                fa = clamp(a * min(1.0, lt / 0.12))
+                fill = self.paint(col(cname), fa)
+                stroke = (0, 0, 0, int(255 * fa * 0.9)) if self.layer is not None else (0, 0, 0)
+                d.text((x, y0 + i * lh + lh / 2), txt.upper(), font=f, fill=fill, anchor=h + "m",
+                       stroke_width=max(2, int(size * 0.07)), stroke_fill=stroke)
+            return
         c = self.paint(col(it.get("color", "white")), a)
         if t == "text":
             f = font(it.get("w", 700), it.get("size", 60))
@@ -354,7 +375,7 @@ def scene_at(spec, t):
 def reel_frame(spec, t, bg=None):
     W, H = 1080, 1920
     si, sc, lt = scene_at(spec, t)
-    cv = Canvas(W, H, brand=spec.get("brand", True), grid_offset=t * 12, bg=bg)
+    cv = Canvas(W, H, brand=sc.get("brand", spec.get("brand", True)), grid_offset=t * 12, bg=bg)
     dur = sc["dur"]
     last = si == len(spec["scenes"]) - 1
     for it in laid(sc["items"], W, H):
@@ -362,7 +383,9 @@ def reel_frame(spec, t, bg=None):
         a = ease_out((lt - at) / 0.35)
         if not last and not it.get("hold"):
             a *= 1 - ease_out((lt - (dur - 0.3)) / 0.3)
-        dy = 0 if it["t"] in ("pop", "bar", "line", "phone") else (1 - ease_out((lt - at) / 0.35)) * 40
+        if it.get("until") is not None:
+            a *= 1 - ease_out((lt - (it["until"] - 0.12)) / 0.12)
+        dy = 0 if it["t"] in ("pop", "bar", "line", "phone", "cap") else (1 - ease_out((lt - at) / 0.35)) * 40
         cv.draw(it, a, dy, lt - at)
     im = cv.final()
     total = sum(s["dur"] for s in spec["scenes"])
@@ -399,6 +422,21 @@ def treat(frame, progress, scrim, zoom, punch=1.0):
         frame = frame.crop((x0, y0, x0 + w, y0 + h)).resize((1080, 1920), Image.BILINEAR)
     return Image.blend(frame, Image.new("RGB", (1080, 1920), BG), scrim)
 
+WHIP = 0.16  # segundos de barrido a cada lado del corte
+
+def whip(frame, k, direction):
+    """Barrido horizontal con desenfoque de movimiento. k: 0 (quieto) a 1 (barrido maximo)."""
+    if k <= 0.01:
+        return frame
+    from PIL import ImageChops
+    shift = int(direction * 1080 * 0.55 * k)
+    n = 6
+    acc = None
+    for j in range(n):
+        fr = ImageChops.offset(frame, shift - int(direction * 160 * k * j / n), 0)
+        acc = fr if acc is None else Image.blend(acc, fr, 1.0 / (j + 1))
+    return Image.blend(acc, Image.new("RGB", acc.size, (255, 255, 255)), 0.28 * k)
+
 def render_reel(spec, out_mp4, fps=30, clips=None, cover=None):
     """clips: lista de rutas de video. Una escena usa {"bg": {"clip": i, "start": s}} para ir sobre el clip i."""
     clips = clips or []
@@ -422,6 +460,13 @@ def render_reel(spec, out_mp4, fps=30, clips=None, cover=None):
             fr = reader.next()
             if fr is not None:
                 bg = treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06), b.get("punch", 1.0))
+                if spec.get("transition") == "whip":
+                    scs = spec["scenes"]
+                    vid = lambda j: 0 <= j < len(scs) and scs[j].get("bg") is not None
+                    if lt < WHIP and vid(si - 1):
+                        bg = whip(bg, 1 - lt / WHIP, 1)
+                    elif sc["dur"] - lt < WHIP and vid(si + 1):
+                        bg = whip(bg, 1 - (sc["dur"] - lt) / WHIP, -1)
         im = reel_frame(spec, t, bg)
         if cover and abs(t - cover_at) < 0.5 / fps:
             im.save(cover)

@@ -4,6 +4,9 @@
 //   -> spec de edicion (cortes rapidos, zoom de golpe, 1.1x, textos, celular con la app o foto del producto)
 //   -> render en GitHub Actions (analytiq-studio) -> aprobacion en la Torre con el link del video.
 // Tambien hace de puente: una pieza aprobada en la Torre pasa al calendario de redes (AnalytiQ).
+// Formato "pelicula" (edit.formato = "pelicula"): la modelo camina hacia la camara y el mundo cambia a su alrededor.
+//   Claude escribe ambientes (ropa, objetos, interacciones, linea), Gemini hace la imagen de cada ambiente con la modelo,
+//   Veo anima cada uno con su linea y la edicion los une con barridos rapidos y subtitulos de creadora.
 // Acciones: tick (por defecto) | plan (solo guion, para probar) | bridge
 // Auth: x-cron-secret = hallazgo_cron_secret
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -49,6 +52,15 @@ const PLAN: Record<number, { clips: number[]; card: number }> = {
   30: { clips: [8, 8, 8, 6], card: 3.8 },
 };
 const cutsFor = (secs: number) => (secs === 6 ? CUTS6 : CUTS8);
+
+// Pelicula: segundos de cada ambiente (clips de Veo de 4, 6 u 8 s)
+const FILM: Record<number, { clips: number[]; card: number }> = {
+  10: { clips: [4, 6], card: 2.4 },
+  15: { clips: [4, 6, 6], card: 2.6 },
+  30: { clips: [6, 6, 6, 8, 6], card: 3.2 },
+};
+const isFilm = (req: any) => (req.edit || {}).formato === "pelicula";
+const planFor = (req: any) => (isFilm(req) ? FILM : PLAN)[req.duration] || (isFilm(req) ? FILM[30] : PLAN[15]);
 
 // ---------- Guion con Claude Console ----------
 const SISTEMA = `Eres el director creativo de una agencia de videos UGC en Medellin. Escribes guiones para una modelo virtual (creada con IA) que habla a la camara del celular como creadora de contenido, en espanol de Colombia, muy expresiva, cercana y con energia, al estilo de un anuncio de colaboracion de creadora con marca.
@@ -98,6 +110,70 @@ Guia del pedido: ${req.guide || "sin guia adicional, usa tu criterio para vender
   await sb.from("ugc_generations").insert({ order_id: req.order_id, model_slug: req.model_slug, step: "guion", quality: "final", provider: "anthropic",
     ai_model: MODEL, kind: "text", units: 1, input_tokens: u.input_tokens, output_tokens: u.output_tokens, cost_usd: Number(cost.toFixed(4)), ok: true, prompt: user.slice(0, 4000) });
   return out;
+}
+
+const SISTEMA_FILM = `Eres director creativo y de cine publicitario de una agencia UGC en Medellin. Disenas cortos verticales tipo pelicula de una sola toma: la modelo virtual (creada con IA) camina hacia la camara hablando sin parar y el mundo cambia a su alrededor; en cada ambiente cambia de ropa y de oficio, y cosas nuevas le aparecen solo a ella y ella interactua con ellas y con personas (ej: empieza a llover y saca una sombrilla y se sube el hoodie; en una hamburgueseria tiene el delantal del local y se toma una selfie con la hamburguesa).
+
+Reglas:
+- Espanol de Colombia, cercano, con energia de creadora de contenido. Nada de testimonios falsos ni cifras inventadas.
+- El primer ambiente arranca con un GANCHO muy fuerte en los primeros 2 segundos: una frase que obligue a quedarse (curiosidad, sorpresa o contradiccion).
+- El video explica el producto y como funciona (pasos simples) y termina con un llamado a la accion que sorprenda, que casi ni se lo esperen (un giro fisico o de guion en el ultimo ambiente).
+- Cada ambiente dura lo indicado y su linea respeta el numero de palabras (mas palabras se cortan). Las lineas se encadenan como una sola frase continua.
+- Escribe los nombres de marca como se pronuncian en espanol dentro de "linea" (ej: "Analític Cor") y bien escritos en subtitulos.
+- "imagen" y "accion" van en ingles, muy concretas y visuales. La modelo siempre de frente caminando hacia la camara, plano de medio muslo hacia arriba. Una sola accion fisica por ambiente, sencilla y creible.
+- Subtitulos: 1 o 2 bloques por ambiente, cada bloque de 1 a 3 lineas cortas (maximo 14 caracteres por linea) con lo esencial de lo que dice; "acento": true en la palabra clave.
+- Exactamente un ambiente lleva "pasos": 3 pasos de maximo 4 palabras que explican como funciona.
+- NUNCA uses guion largo ni guion medio como pausa.
+
+Devuelves SOLO JSON valido, sin markdown:
+{"escenas":[{"ambiente":"nombre corto","imagen":"location, time of day, light, outfit, props in hands, people around","accion":"what happens during the take: interaction, objects appearing, gestures","linea":"lo que dice textual","subtitulos":[[{"t":"LINEA 1","acento":false},{"t":"LINEA 2","acento":true}]],"pasos":["..."]}],
+ "cierre":{"titulo":"marca o producto corto","subtitulo":"una linea de beneficio","palabra":"PALABRA para escribir"},
+ "caption":"copy para Instagram/Facebook, 3 a 5 lineas, cierra con el llamado a la accion y 4 a 6 hashtags",
+ "music_prompt":"en ingles: pista instrumental cinematografica y con ritmo, unos 30 s, sin voces"}`;
+
+async function anthropic(system: string, user: string, req: any, step: string) {
+  const key = (await asecret("analytiq_anthropic_key")) || (await hsecret("hallazgo_anthropic_key"));
+  if (!key) throw new Error("No hay llave de Claude Console en el Vault");
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: MODEL, max_tokens: 4000, system, messages: [{ role: "user", content: user }] }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error("Claude API: " + (j.error?.message || r.status));
+  const txt = (j.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("");
+  const m = txt.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("Claude no devolvio JSON");
+  const u = j.usage || {};
+  const cost = ((u.input_tokens || 0) * 2 + (u.output_tokens || 0) * 10) / 1e6;
+  await sb.from("ugc_generations").insert({ order_id: req.order_id, model_slug: req.model_slug, step, quality: "final", provider: "anthropic",
+    ai_model: MODEL, kind: "text", units: 1, input_tokens: u.input_tokens, output_tokens: u.output_tokens, cost_usd: Number(cost.toFixed(4)), ok: true, prompt: user.slice(0, 4000) });
+  return JSON.parse(m[0].replace(/\s*[—–]\s*/g, ". "));
+}
+
+async function claudeFilm(req: any, model: any, plan: { clips: number[] }) {
+  const negocio = NEGOCIO[req.tenant_id] || "la marca";
+  const contacto = req.tenant_id === AQ ? "WhatsApp +57 310 219 7559 o DM" : "escribir por DM o comprar en hallazgo.shop con pago contra entrega";
+  const words: Record<number, string> = { 4: "7 a 9", 6: "11 a 14", 8: "16 a 19" };
+  const amb = plan.clips.map((s, i) => `ambiente ${i + 1}: ${s} s, ${words[s]} palabras`).join("; ");
+  const user = `Marca: ${negocio}. Contacto para el cierre: ${contacto}.
+Modelo: ${model.name}, ${model.age} anos, de ${model.city}. Personalidad: ${model.personality}. Forma de hablar: ${model.speech_style}
+Producto: ${req.product_name}.
+Informacion del producto: ${req.product_info || "sin detalle"}
+Duracion total: ${req.duration} segundos. ${plan.clips.length} ambientes: ${amb}.
+Guia del pedido: ${req.guide || "sin guia adicional, usa tu criterio"}`;
+  const out = await anthropic(SISTEMA_FILM, user, req, "guion_pelicula");
+  if (!Array.isArray(out.escenas) || out.escenas.length < plan.clips.length) throw new Error("Guion de pelicula incompleto");
+  out.escenas = out.escenas.slice(0, plan.clips.length);
+  out.formato = "pelicula";
+  return out;
+}
+
+function filmImagePrompt(e: any) {
+  return `Use the woman in the reference photos as the exact same person: same face, same glam makeup, same long straight dark hair, same curvy figure with full bust and wide hips. Vertical 9:16 cinematic frame shot on an iPhone by someone walking backwards in front of her: she walks TOWARD the camera, framed from mid-thigh up, centered, mouth slightly open as if starting to talk, warm expressive smile. Natural cinematic light, shallow depth of field, slight phone-lens softness and grain, real skin texture, no text, no logos, photorealistic, not AI-looking. Scene: ${e.imagen}`;
+}
+function filmVeoPrompt(e: any) {
+  return `Vertical cinematic UGC video, one continuous handheld take: the camera operator walks backwards while the young Colombian woman in the image walks toward the camera talking to it. She starts speaking immediately from the first frame, energetic and expressive, in Spanish with a warm Medellín paisa accent, young female voice. She says: "${e.linea}" During the take: ${e.accion}. Natural hand gestures, real people and ambient sound around her, cinematic natural light. No music, no subtitles, no text on screen.`;
 }
 
 function veoPrompt(model: any, linea: string, gesto: string) {
@@ -155,6 +231,50 @@ function buildSpec(req: any, script: any, clipUrls: string[], screens: string[])
   };
 }
 
+function buildFilmSpec(req: any, script: any, clipUrls: string[]) {
+  const plan = planFor(req);
+  const speed = 1.1, head = 0.25, tail = 0.35;
+  const textos = (req.edit || {}).textos !== false;
+  const scenes: any[] = [];
+  plan.clips.forEach((secs, i) => {
+    const e = script.escenas[i] || {};
+    const dur = Number(((secs - head - tail) / speed).toFixed(2));
+    const items: any[] = [];
+    if (textos) {
+      if (Array.isArray(e.pasos) && e.pasos.length) {
+        // Como funciona: 3 pasos numerados que entran uno tras otro y se quedan
+        const step = (dur - 0.4) / e.pasos.length;
+        e.pasos.slice(0, 3).forEach((p: string, k: number) => {
+          items.push({ t: "cap", lines: [[`${k + 1}. ${p}`, k === e.pasos.length - 1 ? "yellow" : "white"]], size: 64, x: "C", y: 1240 + k * 110, at: 0.2 + k * step });
+        });
+      } else {
+        const blocks: any[] = (e.subtitulos || []).slice(0, 2);
+        const win = dur / Math.max(1, blocks.length);
+        blocks.forEach((b: any, k: number) => {
+          const lines = (Array.isArray(b) ? b : [b]).slice(0, 3).map((l: any) => [String(l.t || l.texto || l), l.acento ? "yellow" : "white"]);
+          const long = Math.max(...lines.map((l: any) => l[0].length));
+          items.push({ t: "cap", lines, size: long > 12 ? 82 : 96, x: "C", y: 1380, at: 0.05 + k * win, ...(k < blocks.length - 1 ? { until: (k + 1) * win } : {}) });
+        });
+      }
+    }
+    scenes.push({ dur, brand: false, bg: { clip: i, start: head, scrim: 0, zoom: 0.035, punch: 1.0 }, items });
+  });
+  const cierre = script.cierre || {};
+  const contacto = req.tenant_id === AQ ? "o al WhatsApp +57 310 219 7559" : "Pago contra entrega · hallazgo.shop";
+  scenes.push({ dur: plan.card, brand: true, items: [
+    { t: "text", text: cierre.titulo || req.product_name, size: 84, w: 900, color: "white", x: "C" },
+    { t: "text", text: cierre.subtitulo || "", size: 50, w: 700, color: "dato", x: "C", at: 0.3 },
+    { t: "rich", parts: [["Escribe ", "white"], [String(cierre.palabra || "INFO").toUpperCase(), "orange"]], size: 64, x: "C", at: 0.6 },
+    { t: "text", text: contacto, size: 44, w: 700, color: "dato", x: "C", at: 0.9 },
+    { t: "text", text: "Presentadora creada con IA", size: 28, w: 500, color: "white", x: "C", at: 1.1 },
+  ] });
+  return {
+    kind: "reel", title: `UGC ${req.model_slug}: ${req.product_name}`, voice: true, voice_model: req.model_slug, speed, cover_at: 0.8,
+    brand: req.tenant_id === AQ, transition: "whip", ugc_request_id: req.id,
+    clips: clipUrls.map((url) => ({ url })), scenes,
+  };
+}
+
 async function dispatch(jobId: string) {
   const token = await asecret("analytiq_github_token");
   if (!token) throw new Error("Falta analytiq_github_token en el Vault");
@@ -167,8 +287,46 @@ async function dispatch(jobId: string) {
 }
 
 // ---------- Pasos ----------
+async function stepNewFilm(req: any, model: any, orderId: string) {
+  const plan = planFor(req);
+  // Fase 1: guion por ambientes (Claude Console). Cada fase va en un tick distinto para no pasar el limite de tiempo.
+  if (!(req.script?.escenas?.length >= plan.clips.length)) {
+    const script = await claudeFilm(req, model, plan);
+    await setReq(req.id, { script, error: null });
+    return { id: req.id, fase: "guion" };
+  }
+  const script = req.script;
+  // Fase 2: imagen de cada ambiente con la modelo (Gemini, calidad final), en paralelo
+  const faltan = script.escenas.map((e: any, i: number) => (e.img ? -1 : i)).filter((i: number) => i >= 0);
+  if (faltan.length) {
+    const refs = [model.photos?.frente_sonrisa, model.photos?.cuerpo_entero, model.look].filter(Boolean);
+    const res = await Promise.all(faltan.map((i: number) => callFn("ugc-studio", {
+      action: "generate", quality: "final", slug: req.model_slug, step: `pedido_${req.id.slice(0, 8)}_amb${i + 1}`, order_id: orderId,
+      refs, prompt: filmImagePrompt(script.escenas[i]), n: 1,
+    }).catch((e) => ({ error: String(e.message) }))));
+    const errs: string[] = [];
+    faltan.forEach((i: number, k: number) => {
+      const img = res[k]?.images?.[0];
+      if (img?.url) script.escenas[i].img = img.url; else errs.push(img?.error || res[k]?.error || "sin imagen");
+    });
+    await setReq(req.id, { script });
+    if (errs.length) throw new Error("Imagenes: " + errs[0]);
+    return { id: req.id, fase: "imagenes" };
+  }
+  // Fase 3: un clip de Veo por ambiente
+  const ids: string[] = [];
+  for (let i = 0; i < plan.clips.length; i++) {
+    const e = script.escenas[i];
+    const r = await callFn("ugc-studio", { action: "veo_start", slug: req.model_slug, step: `pedido_${req.id.slice(0, 8)}_amb${i + 1}`, seconds: plan.clips[i],
+      resolution: "720p", image_url: e.img, order_id: orderId, prompt: filmVeoPrompt(e), negative: NEG });
+    ids.push(r.generation_id);
+  }
+  await setReq(req.id, { clip_ids: ids, status: "generando", error: null });
+  return { id: req.id, status: "generando", clips: ids.length };
+}
+
 async function stepNew(req: any) {
-  const plan = PLAN[req.duration];
+  const plan = planFor(req);
   const { data: model } = await sb.from("ugc_models").select("*").eq("slug", req.model_slug).single();
   if (!model) throw new Error("No existe la modelo " + req.model_slug);
   const image = model.look || model.photos?.para_animar;
@@ -179,6 +337,7 @@ async function stepNew(req: any) {
     orderId = o!.id; req.order_id = orderId;
     await setReq(req.id, { order_id: orderId });
   }
+  if (isFilm(req)) return await stepNewFilm(req, model, orderId);
   // Si un intento anterior ya escribio el guion, se reutiliza (no se paga dos veces)
   const script = req.script?.clips?.length >= plan.clips.length ? req.script : await claudeScript(req, model, plan);
   if (script !== req.script) await setReq(req.id, { script });
@@ -206,7 +365,7 @@ async function stepClips(req: any) {
     const { data: p } = await sb.from("ugc_products").select("app_screens").eq("tenant_id", req.tenant_id).eq("ref", req.product_ref).maybeSingle();
     screens = p?.app_screens || [];
   }
-  const spec = buildSpec(req, req.script, urls, screens);
+  const spec = isFilm(req) ? buildFilmSpec(req, req.script, urls) : buildSpec(req, req.script, urls, screens);
   let music: string | null = null;
   if ((req.edit || {}).musica !== false) {
     try { music = (await callFn("analytiq-studio", { action: "music", slug: `ugc-${req.id.slice(0, 8)}`, prompt: req.script.music_prompt || "Upbeat modern Latin pop instrumental, energetic, low background music under a voice, no vocals, 30 seconds." })).url; }
@@ -331,7 +490,7 @@ Deno.serve(async (req) => {
     else if (b.action === "plan") {
       const { data: r } = await sb.from("ugc_requests").select("*").eq("id", b.id).single();
       const { data: m } = await sb.from("ugc_models").select("*").eq("slug", r.model_slug).single();
-      result = await claudeScript(r, m, PLAN[r.duration]);
+      result = isFilm(r) ? await claudeFilm(r, m, planFor(r)) : await claudeScript(r, m, planFor(r));
     } else result = await tick();
     return json({ ok: true, result });
   } catch (e) {
