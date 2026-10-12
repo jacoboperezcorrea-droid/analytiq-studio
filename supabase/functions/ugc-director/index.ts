@@ -123,6 +123,7 @@ Reglas:
 - "imagen" y "accion" van en ingles, muy concretas y visuales. La modelo siempre de frente caminando hacia la camara, plano de medio muslo hacia arriba. Una sola accion fisica por ambiente, sencilla y creible.
 - Subtitulos: 1 o 2 bloques por ambiente, cada bloque de 1 a 3 lineas cortas (maximo 14 caracteres por linea) con lo esencial de lo que dice; "acento": true en la palabra clave.
 - Exactamente un ambiente lleva "pasos": 3 pasos de maximo 4 palabras que explican como funciona.
+- La modelo NO dice su nombre en las lineas (el motor de video bloquea nombres propios de personas).
 - NUNCA uses guion largo ni guion medio como pausa.
 
 Devuelves SOLO JSON valido, sin markdown:
@@ -377,8 +378,16 @@ async function stepNew(req: any) {
 
 async function stepClips(req: any) {
   const urls: string[] = [];
-  for (const gid of req.clip_ids || []) {
+  for (const [ci, gid] of (req.clip_ids || []).entries()) {
     const s = await callFn("ugc-studio", { action: "veo_status", generation_id: gid });
+    if (s.status === "error" && isFilm(req) && (req.script.escenas[ci].fallos || 0) < 2) {
+      // Pelicula: si Veo bloquea o falla una toma, se repite solo esa (hasta 2 veces) y lo demas se conserva
+      const script = req.script;
+      script.escenas[ci].fallos = (script.escenas[ci].fallos || 0) + 1;
+      delete script.escenas[ci].gen;
+      await setReq(req.id, { script, status: "nuevo", clip_ids: [], error: `Repitiendo toma ${ci + 1}: ${String(s.error || "").slice(0, 200)}` });
+      return { id: req.id, repite: ci + 1 };
+    }
     if (s.status === "error") throw new Error("Un clip fallo en Veo: " + (s.error || ""));
     if (s.status !== "listo") return { id: req.id, waiting: true };
     urls.push(s.url);
