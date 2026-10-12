@@ -72,6 +72,26 @@ def voice_track(spec, clip_paths, workdir):
                                 "-af", "highpass=f=400,lowpass=f=6000,afade=t=in:d=0.3:curve=exp,afade=t=out:st=0.3:d=0.15,volume=0.35", wh], check=True)
             parts.append((wh, 0, 0.45, max(0.0, t3 - 0.3)))
         t3 += sc["dur"]
+    # Efectos de cine: "impact" (golpe grave al empezar la escena) y "riser" (subida que termina al final de la escena)
+    t4 = 0.0
+    fx = {}
+    for sc in spec["scenes"]:
+        for kind in (sc.get("sfx") or []):
+            if kind not in fx:
+                path = os.path.join(workdir, f"sfx_{kind}.wav")
+                if kind == "impact":
+                    src = ["-f", "lavfi", "-i", "sine=f=55:d=2.2", "-f", "lavfi", "-i", "anoisesrc=c=brown:d=2.2:a=0.5"]
+                    af = "[0:a][1:a]amix=inputs=2:weights=1 0.35,lowpass=f=180,afade=t=in:d=0.01,afade=t=out:st=0.15:d=2.0:curve=exp,volume=2.2,aecho=0.8:0.6:120:0.35"
+                    subprocess.run(["ffmpeg", "-y", "-loglevel", "error"] + src + ["-filter_complex", af, path], check=True)
+                else:
+                    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "anoisesrc=c=white:d=1.6:a=0.4",
+                                    "-af", "highpass=f=800,lowpass=f=9000,afade=t=in:d=1.5:curve=exp,afade=t=out:st=1.5:d=0.1,volume=0.5", path], check=True)
+                fx[kind] = path
+            if kind == "impact":
+                parts.append((fx[kind], 0, 2.2 / speed, t4))
+            else:
+                parts.append((fx[kind], 0, 1.6 / speed, max(0.0, t4 + sc["dur"] - 1.6)))
+        t4 += sc["dur"]
     # Escenas con voz en off propia (TTS de la modelo), por ejemplo la explicacion en graficos
     t2 = 0.0
     for k, sc in enumerate(spec["scenes"]):
