@@ -311,13 +311,16 @@ async function stepNewFilm(req: any, model: any, orderId: string) {
     const res = await Promise.all(faltan.map((i: number) => callFn("ugc-studio", {
       action: "generate", quality: "final", slug: req.model_slug, step: `pedido_${req.id.slice(0, 8)}_amb${i + 1}`, order_id: orderId,
       refs, prompt: filmImagePrompt(script.escenas[i]), n: 1,
+    }).then(async (r: any) => {
+      // Cada imagen se guarda apenas llega: si la funcion se corta por tiempo no se pierde lo ya pagado
+      const url = r?.images?.[0]?.url;
+      if (url) { script.escenas[i].img = url; await setReq(req.id, { script }); }
+      return r;
     }).catch((e) => ({ error: String(e.message) }))));
     const errs: string[] = [];
     faltan.forEach((i: number, k: number) => {
-      const img = res[k]?.images?.[0];
-      if (img?.url) script.escenas[i].img = img.url; else errs.push(img?.error || res[k]?.error || "sin imagen");
+      if (!script.escenas[i].img) errs.push(res[k]?.images?.[0]?.error || res[k]?.error || "sin imagen");
     });
-    await setReq(req.id, { script });
     if (errs.length) throw new Error("Imagenes: " + errs[0]);
     return { id: req.id, fase: "imagenes" };
   }
