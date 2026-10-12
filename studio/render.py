@@ -435,18 +435,22 @@ def reel_frame(spec, t, bg=None):
     return im
 
 class ClipReader:
-    """Lee cuadros de un clip ya escalado a 1080x1920, desde un segundo dado."""
-    def __init__(self, path, start, dur, fps, speed=1.0):
+    """Lee cuadros de un clip ya escalado (1080x1920, o 1080x1080 en formato cuadrado), desde un segundo dado."""
+    def __init__(self, path, start, dur, fps, speed=1.0, size=(1080, 1920), cx=0.5):
         # speed > 1 acelera el clip (ritmo de creador); start se mide en segundos del clip original
-        vf = ("setpts=PTS/%s," % speed if speed != 1 else "") + "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=%d" % fps
+        # cx: centro horizontal del recorte (0 izquierda, 0.5 centro, 1 derecha), util para clips horizontales de Veo
+        self.size = size
+        w, h = size
+        vf = ("setpts=PTS/%s," % speed if speed != 1 else "") + "scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d:(iw-%d)*%s:(ih-%d)/2,fps=%d" % (w, h, w, h, w, cx, h, fps)
         self.p = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-ss", str(start), "-i", path, "-t", str(dur * speed + 0.5),
                                    "-vf", vf,
                                    "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
         self.last = None
     def next(self):
-        buf = self.p.stdout.read(1080 * 1920 * 3)
-        if len(buf) == 1080 * 1920 * 3:
-            self.last = Image.frombytes("RGB", (1080, 1920), buf)
+        n = self.size[0] * self.size[1] * 3
+        buf = self.p.stdout.read(n)
+        if len(buf) == n:
+            self.last = Image.frombytes("RGB", self.size, buf)
         return self.last
     def close(self):
         try: self.p.kill()
@@ -455,12 +459,23 @@ class ClipReader:
 def treat(frame, progress, scrim, zoom, punch=1.0, tint=None):
     """Zoom suave + capa oscura de marca para que el texto se lea sobre el video.
     punch: zoom fijo de corte (1.15 = plano mas cerrado), el golpe de zoom tipico de creadores."""
+    W0, H0 = frame.size
     if zoom or punch != 1.0:
         z = punch * (1 + zoom * progress)
-        w, h = int(1080 / z), int(1920 / z)
-        x0, y0 = (1080 - w) // 2, (1920 - h) // 2
-        frame = frame.crop((x0, y0, x0 + w, y0 + h)).resize((1080, 1920), Image.BILINEAR)
-    return Image.blend(frame, Image.new("RGB", (1080, 1920), tint or BG), scrim)
+        w, h = int(W0 / z), int(H0 / z)
+        x0, y0 = (W0 - w) // 2, (H0 - h) // 2
+        frame = frame.crop((x0, y0, x0 + w, y0 + h)).resize((W0, H0), Image.BILINEAR)
+    return Image.blend(frame, Image.new("RGB", (W0, H0), tint or BG), scrim)
+
+SQ_Y = 420  # formato cuadrado: el video ocupa 1080x1080 desde y=420, franjas negras arriba y abajo
+
+def boxed(frame):
+    """Pone un cuadro 1080x1080 en el centro de un lienzo vertical negro (look de video cuadrado en Reels)."""
+    if frame.size == (1080, 1920):
+        return frame
+    im = Image.new("RGB", (1080, 1920), (0, 0, 0))
+    im.paste(frame, (0, SQ_Y))
+    return im
 
 WHIP = 0.16  # segundos de barrido a cada lado del corte
 
@@ -495,11 +510,13 @@ def render_reel(spec, out_mp4, fps=30, clips=None, cover=None):
         if b is not None and b.get("clip", 0) < len(clips) and clips[b.get("clip", 0)]:
             if cur_scene != si:
                 if reader: reader.close()
-                reader = ClipReader(clips[b.get("clip", 0)], b.get("start", 0), sc["dur"], fps, spec.get("speed", 1.0))
+                sq = spec.get("frame") == "square"
+                reader = ClipReader(clips[b.get("clip", 0)], b.get("start", 0), sc["dur"], fps, spec.get("speed", 1.0),
+                                    (1080, 1080) if sq else (1080, 1920), b.get("cx", 0.5))
                 cur_scene = si
             fr = reader.next()
             if fr is not None:
-                bg = treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06), b.get("punch", 1.0), DARK if spec.get("end_dark") else None)
+                bg = boxed(treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06), b.get("punch", 1.0), DARK if spec.get("end_dark") else None))
                 if spec.get("transition") == "whip":
                     scs = spec["scenes"]
                     vid = lambda j: 0 <= j < len(scs) and scs[j].get("bg") is not None
