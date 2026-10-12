@@ -234,7 +234,12 @@ async function veoStart(b: any) {
     method: "POST", headers: { "x-goog-api-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ instances: [instance], parameters }),
   });
   const j = await r.json();
-  if (!r.ok) throw new Error("Veo: " + (j.error?.message || r.status));
+  if (!r.ok) {
+    const msg = j.error?.message || String(r.status);
+    // Cupo diario de Veo en Gemini agotado: el mismo Veo 3.1 Fast se pide por fal.ai para no frenar el pedido
+    if (/quota|exceeded|RESOURCE_EXHAUSTED/i.test(msg) && b.no_fal !== true) return await veoFal(b, image, secs, resolution);
+    throw new Error("Veo: " + msg);
+  }
   const tag = `${model}@${resolution}`;
   const { data, error } = await sb.from("ugc_generations").insert({
     order_id: b.order_id || null, model_slug: b.slug || null, step: b.step || "veo", quality: model.includes("fast") || model.includes("lite") ? "prueba" : "final",
@@ -245,10 +250,35 @@ async function veoStart(b: any) {
   return { generation_id: data.id, operation: j.name };
 }
 
+const FAL_VEO = "fal-ai/veo3.1/fast/image-to-video";
+async function veoFal(b: any, image: string, secs: number, resolution: string) {
+  const key = await falKey();
+  const dur = secs <= 4 ? 4 : secs <= 6 ? 6 : 8;
+  const r = await fetch(`https://queue.fal.run/${FAL_VEO}`, {
+    method: "POST", headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: b.prompt, image_url: image, aspect_ratio: b.aspect || "9:16", duration: `${dur}s`, resolution, generate_audio: true, negative_prompt: b.negative || undefined }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error("fal Veo: " + JSON.stringify(j.detail || j).slice(0, 300));
+  const { data, error } = await sb.from("ugc_generations").insert({
+    order_id: b.order_id || null, model_slug: b.slug || null, step: b.step || "veo", quality: "prueba",
+    provider: "fal", ai_model: `fal-ai/veo3.1/fast@${resolution}`, kind: "video", units: dur, cost_usd: 0, ok: false, status: "procesando",
+    external_id: j.request_id, meta: { status_url: j.status_url, response_url: j.response_url, image, num_frames: 0 }, prompt: b.prompt,
+  }).select("id").single();
+  if (error) throw new Error("registro: " + error.message);
+  return { generation_id: data.id, operation: j.request_id, via: "fal" };
+}
+
 async function veoStatus(b: any) {
-  const key = await geminiKey();
   const { data: g } = await sb.from("ugc_generations").select("*").eq("id", b.generation_id).single();
   if (!g) throw new Error("No existe esa generacion");
+  if (g.provider === "fal") {
+    const s = await talkStatus(b);
+    if (s.status === "listo" || s.status === "error") return s;
+    if (s.status === "FAILED" || s.status === "ERROR") return { status: "error", error: "fal fallo" };
+    return { status: "procesando" };
+  }
+  const key = await geminiKey();
   if (g.status === "listo") return { status: "listo", url: g.url, cost_usd: g.cost_usd };
   const r = await fetch(`${API}/${g.external_id}`, { headers: { "x-goog-api-key": key } });
   const j = await r.json();
