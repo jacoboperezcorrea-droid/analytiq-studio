@@ -49,8 +49,11 @@ def xfont(name, size):
     return _xf[k]
 
 _fc = {}
+WEIGHTS = (500, 700, 800, 900)
 def font(weight, size):
-    k = (int(weight), max(8, int(size)))
+    # Solo existen estos pesos de Montserrat: cualquier otro valor se ajusta al mas cercano
+    w = min(WEIGHTS, key=lambda x: abs(x - int(weight)))
+    k = (w, max(8, int(size)))
     if k not in _fc:
         _fc[k] = ImageFont.truetype(FONT.format(k[0]), k[1])
     return _fc[k]
