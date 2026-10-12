@@ -456,14 +456,15 @@ class ClipReader:
         try: self.p.kill()
         except Exception: pass
 
-def treat(frame, progress, scrim, zoom, punch=1.0, tint=None):
+def treat(frame, progress, scrim, zoom, punch=1.0, tint=None, fx=0.5, fy=0.5):
     """Zoom suave + capa oscura de marca para que el texto se lea sobre el video.
     punch: zoom fijo de corte (1.15 = plano mas cerrado), el golpe de zoom tipico de creadores."""
     W0, H0 = frame.size
     if zoom or punch != 1.0:
         z = punch * (1 + zoom * progress)
         w, h = int(W0 / z), int(H0 / z)
-        x0, y0 = (W0 - w) // 2, (H0 - h) // 2
+        # fx, fy: punto de foco del acercamiento (0.5 = centro); sirve para sacar del cuadro un brazo o un objeto
+        x0 = int(min(max(W0 * fx - w / 2, 0), W0 - w)); y0 = int(min(max(H0 * fy - h / 2, 0), H0 - h))
         frame = frame.crop((x0, y0, x0 + w, y0 + h)).resize((W0, H0), Image.BILINEAR)
     return Image.blend(frame, Image.new("RGB", (W0, H0), tint or BG), scrim)
 
@@ -516,7 +517,7 @@ def render_reel(spec, out_mp4, fps=30, clips=None, cover=None):
                 cur_scene = si
             fr = reader.next()
             if fr is not None:
-                bg = boxed(treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06), b.get("punch", 1.0), DARK if spec.get("end_dark") else None))
+                bg = boxed(treat(fr, lt / sc["dur"], b.get("scrim", 0.5), b.get("zoom", 0.06), b.get("punch", 1.0), DARK if spec.get("end_dark") else None, b.get("fx", 0.5), b.get("fy", 0.5)))
                 if spec.get("transition") == "whip":
                     scs = spec["scenes"]
                     vid = lambda j: 0 <= j < len(scs) and scs[j].get("bg") is not None
