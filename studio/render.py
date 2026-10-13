@@ -240,9 +240,50 @@ class Canvas:
             lg = logo(max(10, int(it.get("w", 520) * sc)))
             if lg is None: return
             lg = lg.copy(); lg.putalpha(lg.getchannel("A").point(lambda v: int(v * clamp(a))))
-            px = (self.w - lg.width) // 2; py = int(it.get("y", 700) - lg.height / 2)
+            px = MARGIN if it.get("x") == "L" else (self.w - lg.width) // 2; py = int(it.get("y", 700) - lg.height / 2)
             if self.layer is not None: self.layer.alpha_composite(lg, (max(0, px), max(0, py)))
             else: self.im.paste(lg, (px, py), lg)
+            return
+        if t == "bcap":
+            # Texto dinamico de marca AnalytiQ: Montserrat, caja que se abre de izquierda a derecha y palabras que entran una a una.
+            # Color de linea: "white" caja Azul Profundo + texto blanco; "dato" caja Azul Profundo + texto Azul Dato;
+            # "orange" caja Naranja Core + texto blanco (acento: maximo dos por pieza); "plain" sin caja.
+            size = it.get("size", 80)
+            lines = it["lines"]
+            lh = size * 1.42
+            y0 = it.get("y", 1350) - len(lines) * lh / 2
+            lt0 = local_t if local_t is not None else 9
+            for i, (txt, cname) in enumerate(lines):
+                lt = lt0 - i * 0.14
+                if lt <= 0: continue
+                f = font(900, size)
+                words = txt.upper().split()
+                space = d.textlength(" ", font=f)
+                widths = [d.textlength(w, font=f) for w in words]
+                tw = sum(widths) + space * (len(words) - 1)
+                padx, pady = size * 0.34, size * 0.2
+                left = (self.w - tw) / 2 if h == "m" else (x - tw if h == "r" else x)
+                top = y0 + i * lh + (lh - size * 1.1) / 2
+                boxc = {"orange": COLORS["orange"], "plain": None}.get(cname, BG)
+                txtc = COLORS["dato"] if cname == "dato" else COLORS["white"]
+                if boxc is not None:
+                    bw = (tw + 2 * padx) * ease_out(lt / 0.28)
+                    if bw > 4:
+                        d.rounded_rectangle([left - padx, top - pady, left - padx + bw, top + size * 1.1 + pady], radius=int(size * 0.2),
+                                            fill=self.paint(boxc, a * (0.92 if cname == "orange" else 0.86)))
+                        if cname != "orange":
+                            d.rounded_rectangle([left - padx, top - pady, left - padx + max(6, size * 0.09), top + size * 1.1 + pady],
+                                                radius=int(size * 0.05), fill=self.paint(COLORS["dato"], a))
+                cur = left
+                for j, w in enumerate(words):
+                    wt = lt - 0.12 - j * 0.07
+                    if wt <= 0: break
+                    sc = max(0.05, ease_back(wt / 0.26))
+                    wa = clamp(a * min(1.0, wt / 0.1))
+                    cy = top + size * 0.55 + (1 - ease_out(wt / 0.26)) * size * 0.35
+                    kw = {} if boxc is not None else {"stroke_width": max(2, int(size * 0.06)), "stroke_fill": (0, 0, 0, int(220 * wa)) if self.layer is not None else (0, 0, 0)}
+                    d.text((cur + widths[j] / 2, cy), w, font=font(900, size * sc), fill=self.paint(txtc, wa), anchor="mm", **kw)
+                    cur += widths[j] + space
             return
         if t == "cap":
             size = it.get("size", 96)
@@ -425,7 +466,7 @@ def reel_frame(spec, t, bg=None):
             a *= 1 - ease_out((lt - (dur - 0.3)) / 0.3)
         if it.get("until") is not None:
             a *= 1 - ease_out((lt - (it["until"] - 0.12)) / 0.12)
-        dy = 0 if it["t"] in ("pop", "bar", "line", "phone", "cap", "logo") else (1 - ease_out((lt - at) / 0.35)) * 40
+        dy = 0 if it["t"] in ("pop", "bar", "line", "phone", "cap", "bcap", "logo") else (1 - ease_out((lt - at) / 0.35)) * 40
         cv.draw(it, a, dy, lt - at)
     im = cv.final()
     total = sum(s["dur"] for s in spec["scenes"])
