@@ -542,7 +542,7 @@ details.blk>summary:focus-visible{outline:2px solid var(--ink);outline-offset:4p
     {id:"voz", t:"Guion y acento", who:"Guionista y coach de acento", f:[
       {k:"trato", l:"Cómo le habla al cliente", type:"one", def:"usted", o:[["usted","Usted"],["tu","Tú"]]},
       {k:"acento", l:"Acento", type:"one", def:"paisa", o:[["paisa","Paisa (Medellín)"],["neutro","Colombiano neutro (Bogotá)"],["costeno","Costeño"]]},
-      {k:"muletillas", l:"Expresiones permitidas", type:"many", max:4, def:["pues"], o:[["pues","pues"],["parce","parce"],["oiga","oiga"],["si_o_que","¿sí o qué?"],["ninguna","Ninguna"]]},
+      {k:"muletillas", l:"Expresiones paisas permitidas (solo si salen naturales)", type:"many", max:4, def:["ninguna"], o:[["ninguna","Ninguna (recomendado)"],["hagale_pues","hágale pues"],["vea_pues","vea pues"],["parce","parce"],["oiga","oiga"]]},
       {k:"frases", l:"Frases que deben aparecer tal cual", type:"text", ph:"Ej: el slogan o el nombre de la promo"}
     ]},
     {id:"ambientes", t:"Ambientes", who:"Directora de arte", f:[
@@ -563,7 +563,7 @@ details.blk>summary:focus-visible{outline:2px solid var(--ink);outline-offset:4p
       {k:"mirada", l:"Mirada", type:"one", def:"lente", o:[["lente","Siempre al lente"],["natural","Natural, a veces mira a otro lado"]]}
     ]},
     {id:"edicion", t:"Edición", who:"Editor y músico", f:[
-      {k:"encuadre", l:"Encuadre", type:"one", def:"cuadrado", o:[["cuadrado","Cuadrado como cine"],["vertical","Vertical completo"]]},
+      {k:"encuadre", l:"Encuadre", type:"one", def:"vertical", o:[["vertical","Vertical para Reels y TikTok (recomendado)"],["cuadrado","Cuadrado como cine"]]},
       {k:"textos", l:"Textos en pantalla", type:"one", def:"ambos", o:[["manuscritos","Manuscritos al lado de la cara"],["grandes","Grandes y condensados"],["ambos","Ambos"],["sin","Sin textos"]]},
       {k:"musica", l:"Música", type:"one", def:"suspenso", o:[["suspenso","Suspenso con golpe"],["movida","Movida"],["tranquila","Tranquila"],["sin","Sin música"]]},
       {k:"extras", l:"Extras", type:"many", max:4, def:["logo","fotos"], o:[["logo","Logo animado al final"],["fotos","Fotos flotantes en la revelación"],["foto_producto","Foto del producto en pantalla"],["celular","Celular con la app"]]}

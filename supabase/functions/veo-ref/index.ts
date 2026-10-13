@@ -1,6 +1,7 @@
 // Veo con fotos de referencia del personaje ("Ingredients to Video"): la misma cara en todas las escenas.
-// Auth: x-cron-secret. Body: { slug, step, prompt, refs: [url, url, url], model?, aspect?, resolution?, negative? }
-// Registra la toma en ugc_generations (provider gemini); la descarga la hace ugc-studio con action veo_status.
+// Auth: x-cron-secret. Body: { slug, step, prompt, refs: [url, url, url], model?, aspect?, provider?: "fal" | "gemini" }
+// Proveedor por defecto: fal.ai (mismo Veo 3.1, mismo precio, sin tope diario; solo limite de tomas en paralelo).
+// Veo Fast va por Gemini (fal no tiene version rapida con referencias). La descarga la hace ugc-studio con action veo_status.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 
@@ -20,9 +21,32 @@ Deno.serve(async (req) => {
     const cron = req.headers.get("x-cron-secret");
     if (!cron || cron !== (await secret("com_get_secret", "hallazgo_cron_secret"))) return json({ error: "unauthorized" }, 401);
     const b = await req.json();
+    const model = b.model || "veo-3.1-generate-preview";
+    const provider = model.includes("fast") ? "gemini" : (b.provider || "fal");
+    if (provider === "fal") {
+      const fk = await secret("ugc_get_secret", "ugc_fal_key");
+      if (!fk) throw new Error("No hay ugc_fal_key");
+      const FAL = "fal-ai/veo3.1/reference-to-video";
+      const r = await fetch(`https://queue.fal.run/${FAL}`, {
+        method: "POST", headers: { Authorization: `Key ${fk}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: b.prompt, image_urls: (b.refs || []).slice(0, 3), aspect_ratio: b.aspect || "16:9", duration: "8s", resolution: "1080p", generate_audio: true }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const msg = JSON.stringify(j.detail || j).slice(0, 300);
+        if (/balance|exhausted|locked|insufficient/i.test(msg)) throw new Error("fal.ai sin saldo (credits): recargar en fal.ai/dashboard/billing");
+        throw new Error("fal Veo: " + msg);
+      }
+      const { data, error } = await sb.from("ugc_generations").insert({
+        model_slug: b.slug || null, step: b.step || "veo_ref", quality: "final", provider: "fal", ai_model: `${FAL}@1080p`,
+        kind: "video", units: 8, cost_usd: 0, ok: false, status: "procesando", external_id: j.request_id,
+        meta: { status_url: j.status_url, response_url: j.response_url, refs: b.refs, num_frames: 0 }, prompt: b.prompt,
+      }).select("id").single();
+      if (error) throw new Error("registro: " + error.message);
+      return json({ ok: true, generation_id: data.id, operation: j.request_id, via: "fal" });
+    }
     const key = await secret("com_get_secret", "hallazgo_gemini_key");
     if (!key) throw new Error("No hay llave de Gemini");
-    const model = b.model || "veo-3.1-generate-preview";
     if (model.includes("lite")) throw new Error("lite no soporta referencias");
     // 1080p siempre: el recorte cuadrado queda nativo (1080x1080) sin estirar; en Veo normal cuesta igual que 720p
     const resolution = "1080p";
