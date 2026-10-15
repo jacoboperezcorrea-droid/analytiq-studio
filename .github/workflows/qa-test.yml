@@ -1,0 +1,52 @@
+name: Probar control de calidad
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: "Trabajo ya renderizado (analytiq_content_jobs)"
+        required: true
+      video:
+        description: "URL del reel final"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependencias
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install -q -r requirements.txt
+      - name: Medir
+        env:
+          STUDIO_SECRET: ${{ secrets.STUDIO_SECRET }}
+        run: |
+          mkdir -p review/qa_test
+          python - <<'PY'
+          import json, os
+          from studio import pipeline, qa
+          job = pipeline.call("job_get", {"job_id": "${{ inputs.job_id }}"})
+          spec = job["spec"]
+          wd = "review/qa_test"
+          clips = [pipeline.download(c["url"], os.path.join("/tmp", f"clip_{i}.mp4")) for i, c in enumerate(spec["clips"])]
+          video = pipeline.download("${{ inputs.video }}", "/tmp/reel.mp4")
+          out = qa.run(spec, clips, video, "/tmp")
+          for p, _ in out:
+              os.system(f"cp {p} {wd}/")
+          print(open("/tmp/qa.json").read())
+          PY
+      - name: Subir a la rama review
+        run: |
+          git config user.name "analytiq-bot"; git config user.email "bot@analytiq.local"
+          git checkout -b review-tmp
+          git add review && git commit -qm "QA test"
+          git push -f origin review-tmp:review

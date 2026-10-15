@@ -139,6 +139,13 @@ def build(spec, workdir, clip_url=None, music_url=None):
         if not os.path.exists(cover):
             render.still(spec, spec.get("cover_at", 2.5), cover)
         outs = [(final, "video/mp4"), (cover, "image/png")]
+        # Control de calidad automatico para videos UGC (manos, cortes de voz y hoja de contacto)
+        if spec.get("ugc_request_id") and has_clips:
+            try:
+                from studio import qa
+                outs += qa.run(spec, clip_paths, final, workdir)
+            except Exception as e:
+                print("control de calidad fallo (el video sigue):", e)
     else:
         outs = [(p, "image/png") for p in render.render_slides(spec, os.path.join(workdir, "slide"))]
     return outs
