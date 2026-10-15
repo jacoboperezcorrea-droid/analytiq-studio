@@ -1,5 +1,6 @@
 // Estudio UGC por roles: procesa los pedidos que llegan con el brief del formulario de la Torre (status "estudio").
 //   estudio -> 7 agentes de Claude (ejecutiva, director, guionista, coach de acento, arte, vestuario, actores)
+//   -> guion con escenas para aprobar en la Torre (guion_por_aprobar); si se rechaza con comentarios, el equipo lo rehace desde cero
 //   -> camarografa: tomas de Veo con fotos de referencia de la modelo (veo-ref) -> status estudio_tomas
 //   -> editor: spec cuadrado tipo cine + musica, render en GitHub Actions -> status estudio_edicion
 //   -> aprobacion en la Torre (por_aprobar). La aprobacion y el paso a redes los sigue haciendo ugc-director.
@@ -86,6 +87,7 @@ async function stepEstudio(req: any) {
     base: `Negocio: ${b.negocio || NEGOCIO[req.tenant_id] || "la marca"}. Producto o servicio: ${prod}. Modelo: ${model.name}, ${model.age} anos, de ${model.city}. Personalidad base: ${model.personality || ""}.`,
     bloque: (ks: string[]) => ks.filter((k) => val(k)).map((k) => `- ${k.split("_").join(" ")}: ${val(k)}`).join(String.fromCharCode(10)) || "- (sin datos, usa tu criterio)",
     label: (k: string) => val(k),
+    fb: (req.feedback || []).length ? String.fromCharCode(10, 10) + "Comentarios del cliente sobre versiones anteriores de ESTE pedido (cumplelos todos, y aun asi piensa la idea desde cero):" + String.fromCharCode(10) + (req.feedback || []).map((f: any) => "- " + String(f.texto || f).slice(0, 600)).join(String.fromCharCode(10)) : "",
   };
   // Fase 1: los agentes, en orden y de a dos por ronda para no pasar el tiempo limite de la funcion
   let hechos = 0;
@@ -96,6 +98,8 @@ async function stepEstudio(req: any) {
     await setReq(req.id, { script, error: null });
     hechos++;
   }
+  // Compuerta: el guion con las escenas se aprueba en la Torre antes de gastar en tomas
+  if (!script.aprobado && !(script.tomas || []).some((t: any) => t.gen)) return await guionGate(req, script, model);
   // Fase 2: la camarografa arma cada toma y la graba en Veo con las fotos de referencia de la modelo
   if (!script.tomas.length) {
     script.tomas = Array.from({ length: n }, (_, i) => ({ prompt: takePrompt(script.roles, i) }));
@@ -125,6 +129,52 @@ async function stepEstudio(req: any) {
   }
   await setReq(req.id, { clip_ids: script.tomas.map((t: any) => t.gen), status: "estudio_tomas", error: null });
   return { id: req.id, status: "estudio_tomas" };
+}
+
+const COSTO_TOMA: Record<string, number> = { premium: 3.2, estandar: 0.8 };
+async function guionGate(req: any, script: any, model: any) {
+  const r = script.roles, n = takesFor(req);
+  const pick = (arr: any, i: number) => { const a = Array.isArray(arr) ? arr : []; return a.find((t: any) => Number(t?.n) === i + 1) || a[i] || {}; };
+  const escenas = Array.from({ length: n }, (_, i) => ({
+    n: i + 1,
+    proposito: pick(r.director?.tomas, i).proposito || "",
+    lugar: pick(r.arte?.tomas, i).lugar || "",
+    dice: pick(r.acento?.tomas, i).linea || pick(r.guionista?.tomas, i).linea || "",
+    textos: (pick(r.guionista?.tomas, i).textos || []).map((x: any) => x.texto).filter(Boolean),
+    actuacion: pick(r.actores?.tomas, i).actuacion_es || "",
+  }));
+  const calidad = req.brief?.calidad === "estandar" ? "estandar" : "premium";
+  const costo = Number((n * COSTO_TOMA[calidad]).toFixed(2));
+  const { data: ap, error } = await sb.from("com_approvals").insert({
+    tenant_id: req.tenant_id, type: "ugc_guion", status: "pending", created_by: "ugc-estudio",
+    title: `Guion para aprobar: ${req.product_name} (${req.duration} s, ${model.name})`,
+    summary: r.director?.logline || "",
+    payload: { ugc_request_id: req.id, titulo: r.director?.titulo || "", logline: r.director?.logline || "", look: r.vestuario?.look_es || "",
+      escenas, revelacion: r.director?.revelacion?.toma ? r.director.revelacion.texto : null, pasos: r.director?.pasos?.toma ? r.director.pasos.lista : null,
+      caption: r.guionista?.caption || "", costo_produccion_usd: costo, tomas: n, calidad, version: (req.feedback || []).length + 1 },
+  }).select("id").single();
+  if (error) throw new Error("aprobacion del guion: " + error.message);
+  await setReq(req.id, { script, script_approval_id: ap!.id, status: "guion_por_aprobar", error: null });
+  return { id: req.id, status: "guion_por_aprobar" };
+}
+
+async function stepGuion(req: any) {
+  if (!req.script_approval_id) { await setReq(req.id, { status: "estudio" }); return { id: req.id, sin_aprobacion: true }; }
+  const { data: ap } = await sb.from("com_approvals").select("status,feedback,payload").eq("id", req.script_approval_id).single();
+  if (!ap || ap.status === "pending") return { id: req.id, waiting: true };
+  const script = req.script || { roles: {}, tomas: [] };
+  if (ap.status === "approved" || ap.status === "done") {
+    script.aprobado = true;
+    await sb.from("com_approvals").update({ status: "done", payload: { ...(ap.payload || {}), resultado: "Guion aprobado: grabando tomas" } }).eq("id", req.script_approval_id).eq("status", "approved");
+    await setReq(req.id, { script, status: "estudio", error: null });
+    return { id: req.id, aprobado: true };
+  }
+  // Rechazado: el equipo vuelve a pensar el guion desde cero con los comentarios (solo cuesta los agentes, unos USD 0,15)
+  const fb = [...(req.feedback || [])];
+  if (ap.feedback && !fb.some((f: any) => f.approval_id === req.script_approval_id)) fb.push({ texto: ap.feedback, etapa: "guion", approval_id: req.script_approval_id, at: new Date().toISOString() });
+  if (!ap.feedback) { await setReq(req.id, { status: "rechazado", error: "Guion rechazado sin comentarios" }); return { id: req.id, rechazado: true }; }
+  await setReq(req.id, { script: { roles: {}, tomas: [] }, feedback: fb, script_approval_id: null, status: "estudio", attempts: 0, error: null });
+  return { id: req.id, rehaciendo: true };
 }
 
 async function stepTomas(req: any) {
@@ -174,7 +224,8 @@ async function stepEdicion(req: any) {
   const cover = (job.files || []).find((f: string) => f.endsWith(".png")) || null;
   const { data: ap } = await sb.from("com_approvals").select("payload").eq("id", job.approval_id).single();
   const { data: costo } = await sb.from("ugc_generations").select("cost_usd").eq("order_id", req.order_id).eq("ok", true);
-  const usd = (costo || []).reduce((s: number, r: any) => s + Number(r.cost_usd || 0), 0);
+  const { data: tomas } = await sb.from("ugc_generations").select("cost_usd").like("step", `pedido_${req.id.slice(0, 8)}_%`).eq("ok", true);
+  const usd = [...(costo || []), ...(tomas || [])].reduce((s: number, r: any) => s + Number(r.cost_usd || 0), 0);
   await sb.from("com_approvals").update({
     tenant_id: req.tenant_id,
     title: `Video UGC: ${req.product_name} (${req.duration} s, ${req.model_slug})`,
@@ -186,11 +237,12 @@ async function stepEdicion(req: any) {
 }
 
 async function tick() {
-  const { data: reqs } = await sb.from("ugc_requests").select("*").in("status", ["estudio", "estudio_tomas", "estudio_edicion"]).lt("attempts", 3).order("created_at").limit(3);
+  const { data: reqs } = await sb.from("ugc_requests").select("*").in("status", ["estudio", "guion_por_aprobar", "estudio_tomas", "estudio_edicion"]).lt("attempts", 3).order("created_at").limit(6);
   const out: any[] = [];
   for (const req of reqs || []) {
     try {
       if (req.status === "estudio") out.push(await stepEstudio(req));
+      else if (req.status === "guion_por_aprobar") out.push(await stepGuion(req));
       else if (req.status === "estudio_tomas") out.push(await stepTomas(req));
       else out.push(await stepEdicion(req));
     } catch (e) {

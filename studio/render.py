@@ -250,6 +250,11 @@ class Canvas:
             # "orange" caja Naranja Core + texto blanco (acento: maximo dos por pieza); "plain" sin caja.
             size = it.get("size", 80)
             lines = it["lines"]
+            # Seguro: si alguna linea no cabe dentro de los margenes, se achica la letra (nunca se corta el texto)
+            room = self.w - 2 * MARGIN
+            widest = max((d.textlength(str(tx).upper(), font=font(900, size)) for tx, _ in lines), default=0)
+            if widest + size * 0.68 > room:
+                size = max(28, int(size * room / (widest + size * 0.68)))
             lh = size * 1.42
             y0 = it.get("y", 1350) - len(lines) * lh / 2
             lt0 = local_t if local_t is not None else 9
@@ -288,6 +293,11 @@ class Canvas:
         if t == "cap":
             size = it.get("size", 96)
             lines = it["lines"]
+            room = self.w - 2 * MARGIN
+            fnt = (lambda sz: xfont(it["font"], sz)) if it.get("font") in EXTRA_FONTS else (lambda sz: font(900, sz))
+            widest = max((d.textlength(tx if it.get("font") == "caveat" else str(tx).upper(), font=fnt(size)) for tx, _ in lines), default=0)
+            if widest > room:
+                size = max(28, int(size * room / widest))
             lh = size * 1.02
             y0 = it.get("y", 1350) - len(lines) * lh / 2
             for i, (txt, cname) in enumerate(lines):

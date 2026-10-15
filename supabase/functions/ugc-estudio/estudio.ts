@@ -11,7 +11,9 @@ export const veoModelFor = (req: any) => (req.brief?.calidad === "estandar" ? "v
 const REGLAS = `Reglas de la agencia (aprendidas en produccion, no las rompas):
 - Espanol de Colombia. NUNCA voseo argentino (pensas, conoces, tenes, mira, queres): el motor de video lo convierte en acento argentino. Usa usted o tu segun el brief.
 - Nada de testimonios falsos, cifras o clientes inventados. No uses nombres propios de personas en lo que dice la modelo (el motor de video los bloquea).
-- Cada toma dura 8 segundos: maximo 18 palabras habladas, con una pausa corta permitida.
+- Cada toma dura 8 segundos: maximo 14 palabras habladas, y la frase termina antes del segundo 7 (si se pasa, el video corta a la modelo a mitad de frase).
+- Cada pedido es una produccion NUEVA, pensada desde cero para este negocio y este objetivo. No copies conceptos, estructuras ni frases de otros videos de la agencia (por ejemplo: la modelo revelando que no existe o que la hizo una IA), salvo que el brief lo pida.
+- Las fotos de referencia de la modelo sirven SOLO para la cara y el cuerpo. La ropa, el peinado y los lugares los decide el equipo para este pedido; nunca copies la ropa de las fotos de referencia.
 - Acciones fisicas simples y creibles. Nada magico, nada que aparezca de la nada. Selfie de celular, cara centrada y cerca.
 - La modelo tiene exactamente dos brazos: un brazo sostiene el celular (casi fuera de cuadro) y el otro queda relajado; nunca un brazo detras o encima de la cabeza.
 - NUNCA uses guion largo ni guion medio como pausa.`;
@@ -30,10 +32,10 @@ Trato: ${c.b.trato || "usted"}. Frases obligatorias: ${c.b.frases || "ninguna"}`
   },
   {
     key: "director", nombre: "Director",
-    system: `Eres el director de cortos publicitarios verticales que atrapan como una pelicula (estilo del reel de referencia de ugc.studio.ia: gancho con suspenso, revelacion, montaje rapido, explicacion simple, cierre que vuelve al inicio para que el video se repita).
+    system: `Eres el director creativo de videos verticales para redes. Para CADA pedido inventas un concepto original desde cero, pensado para este negocio, este producto, este publico y este objetivo: una situacion concreta y creible, con gancho en los primeros 2 segundos, desarrollo claro y cierre con el llamado a la accion. Elige la estructura que mejor sirva al formato pedido; no repitas formulas.
 ${REGLAS}
 Devuelve con la herramienta: {"titulo":"...","logline":"una frase","tomas":[{"n":1,"proposito":"que logra esta toma","emocion":"una emocion clara","idea_linea":"de que habla, sin escribir la linea final"}],"revelacion":{"toma":numero o null,"texto":["LINEA 1","LINEA 2"]},"pasos":{"toma":numero o null,"lista":["max 4 palabras","...","..."]},"musica_prompt":"en ingles: instrumental de unos 30 s con el arco del video, sin voces"}
-La primera y la ultima toma ocurren en el mismo lugar (bucle). "pasos" solo si el formato necesita explicar como funciona.`,
+"revelacion" solo si el concepto de verdad tiene una revelacion; "pasos" solo si el formato necesita explicar como funciona. Los comentarios del cliente sobre versiones anteriores de este pedido son obligatorios.`,
     input: (c) => `${c.base}
 
 Brief de la ejecutiva:
@@ -41,13 +43,13 @@ ${JSON.stringify(c.r.ejecutiva)}
 
 Bloque IDEA y TIPO del formulario:
 ${c.bloque(["formato", "duracion", "gancho", "tono", "ritmo"])}
-Numero de tomas de 8 s: ${c.n}.`,
+Numero de tomas de 8 s: ${c.n}.${c.fb}`,
   },
   {
     key: "guionista", nombre: "Guionista",
     system: `Eres el guionista. Escribes lo que la modelo dice en cada toma y los textos de pantalla.
 ${REGLAS}
-Devuelve con la herramienta: {"tomas":[{"n":1,"linea":"texto exacto, max 18 palabras","beats":[{"desde":0,"hasta":3,"dice":"..."},{"desde":3,"hasta":8,"dice":"..."}],"textos":[{"texto":"max 4 palabras","at":0.2,"estilo":"manuscrito|grande","clave":false}]}],"caption":"copy para Instagram de 3 a 5 lineas con el llamado a la accion y 5 hashtags"}
+Devuelve con la herramienta: {"tomas":[{"n":1,"linea":"texto exacto, max 14 palabras","beats":[{"desde":0,"hasta":3,"dice":"..."},{"desde":3,"hasta":8,"dice":"..."}],"textos":[{"texto":"max 4 palabras","at":0.2,"estilo":"manuscrito|grande","clave":false}]}],"caption":"copy para Instagram de 3 a 5 lineas con el llamado a la accion y 5 hashtags"}
 Los beats suman la linea completa sin cambiar palabras. "at" es el segundo dentro de la toma (0 a 7.5). Maximo 3 textos por toma; la ultima toma lleva el llamado a la accion en manuscrito.`,
     input: (c) => `${c.base}
 
@@ -57,7 +59,7 @@ ${JSON.stringify(c.r.ejecutiva)}
 Tratamiento del director:
 ${JSON.stringify(c.r.director)}
 
-Trato: ${c.b.trato || "usted"}. Frases que deben aparecer tal cual: ${c.b.frases || "ninguna"}.`,
+Trato: ${c.b.trato || "usted"}. Frases que deben aparecer tal cual: ${c.b.frases || "ninguna"}.${c.fb}`,
   },
   {
     key: "acento", nombre: "Coach de acento",
@@ -73,7 +75,7 @@ Voz de la modelo: ${c.m.voice_desc || "young warm female voice"}. Personalidad p
   },
   {
     key: "arte", nombre: "Directora de arte",
-    system: `Eres directora de arte. Asignas un ambiente a cada toma (lugar, luz, que se ve alrededor) usando los lugares pedidos. La primera y la ultima toma en el mismo lugar. Gente lejos y desenfocada, nunca interactuando. Nada de texto legible ni logos en el fondo.
+    system: `Eres directora de arte. Asignas un ambiente a cada toma (lugar, luz, que se ve alrededor) usando los lugares pedidos. Cada toma en un lugar distinto salvo que el concepto pida repetir. Gente lejos y desenfocada, nunca interactuando. Nada de texto legible ni logos en el fondo.
 ${REGLAS}
 Devuelve con la herramienta: {"tomas":[{"n":1,"lugar":"...","escena_en":"English: location, light, what is around, framing. Selfie with the phone's front camera at arm's length, her face centered and close."}]}`,
     input: (c) => `Tratamiento del director:
@@ -81,29 +83,29 @@ ${JSON.stringify(c.r.director?.tomas || [])}
 
 Bloque AMBIENTES del formulario:
 ${c.bloque(["lugares", "luz", "fotos_local"])}
-Negocio: ${c.r.ejecutiva?.resumen || ""}`,
+Negocio: ${c.r.ejecutiva?.resumen || ""}${c.fb}`,
   },
   {
     key: "vestuario", nombre: "Vestuarista",
-    system: `Eres vestuarista. Defines una sola ropa, peinado y accesorios para todo el video (salvo que el brief pida cambiar), coherentes con la marca y con la personalidad. Prendas lisas, sin texto ni logos.
+    system: `Eres vestuarista. Defines una sola ropa, peinado y accesorios para todo el video (salvo que el brief pida cambiar), coherentes con la marca y con la personalidad. Prendas lisas, sin texto ni logos. La ropa NO es la de las fotos de referencia de la modelo (esas fotos son solo para la cara). Si el brief dice que lo decidas tu, elige lo que mejor le quede al negocio y al publico.
 ${REGLAS}
-Devuelve con la herramienta: {"look_en":"English: outfit, colors, hairstyle, accessories, makeup level. Natural skin with real texture, no heavy makeup.","misma_ropa":true}`,
+Devuelve con la herramienta: {"look_es":"la ropa y el peinado en una frase en espanol","look_en":"English: outfit, colors, hairstyle, accessories, makeup level. Natural skin with real texture, no heavy makeup.","misma_ropa":true}`,
     input: (c) => `Bloque VESTUARIO del formulario:
 ${c.bloque(["estilo", "colores", "color_marca", "peinado", "misma_ropa"])}
-Modelo: ${c.m.name}, ${c.m.age} anos. Personalidad: ${c.label("tono")}.`,
+Modelo: ${c.m.name}, ${c.m.age} anos. Personalidad: ${c.label("tono")}. Negocio: ${c.r.ejecutiva?.resumen || ""}${c.fb}`,
   },
   {
     key: "actores", nombre: "Directora de actores",
     system: `Eres directora de actores. Para cada toma escribes la actuacion segundo a segundo (gestos, miradas, que hace con el producto), sincronizada con los beats del guion, sin repetir el dialogo.
 ${REGLAS}
-Devuelve con la herramienta: {"personalidad_en":"English: personality and energy in one sentence, e.g. She is mysterious, calm and confident; no laughing.","tomas":[{"n":1,"actuacion_en":"English: 0-3s: ... 3-8s: ..."}]}`,
+Devuelve con la herramienta: {"personalidad_en":"English: personality and energy in one sentence, e.g. She is mysterious, calm and confident; no laughing.","tomas":[{"n":1,"actuacion_es":"una frase en espanol de lo que hace","actuacion_en":"English: 0-3s: ... 3-8s: ..."}]}`,
     input: (c) => `Guion final con beats:
 ${JSON.stringify((c.r.acento?.tomas || c.r.guionista?.tomas || []).map((t: any) => ({ n: t.n, beats: t.beats })))}
 Ambientes: ${JSON.stringify((c.r.arte?.tomas || []).map((t: any) => ({ n: t.n, lugar: t.lugar })))}
 
 Bloque INTERACCIONES del formulario:
 ${c.bloque(["accion", "gestos", "mirada"])}
-Personalidad pedida: ${c.label("tono")}. Producto: ${c.prod}.`,
+Personalidad pedida: ${c.label("tono")}. Producto: ${c.prod}.${c.fb}`,
   },
 ];
 
@@ -119,7 +121,7 @@ export function takePrompt(r: any, i: number) {
   return [
     "Raw selfie video filmed by the woman from the reference images with her phone's front camera held at arm's length.",
     escena,
-    r.vestuario?.look_en || "",
+    r.vestuario?.look_en ? "Wardrobe for this video (different from the clothes in the reference images, which are only for her face): " + r.vestuario.look_en : "",
     "Her face stays centered in the frame and close; the camera wobbles slightly as she holds the phone. She has exactly two arms: one holds the phone almost out of frame, the other rests relaxed; never an arm behind or above her head.",
     r.actores?.personalidad_en || "",
     r.acento?.voz_en || "She speaks Colombian Spanish from Medellin with a soft melodic paisa intonation, natural speed. Not an Argentine accent.",
@@ -133,19 +135,29 @@ export function takePrompt(r: any, i: number) {
 // Editor: corte cuadrado tipo cine (o vertical), con revelacion oscura, pasos, textos y cierre
 export function buildBriefSpec(req: any, script: any, clipUrls: string[], model: any) {
   const r = script.roles, b = req.brief || {}, edit = req.edit || {};
-  const SP = 1.05, head = 0.3, tail = 0.4;
+  const SP = 1.05, head = 0.2, tail = 0.25;
   const square = b.encuadre !== "vertical";
   const tomas = (r.acento?.tomas?.length ? r.acento.tomas : r.guionista?.tomas) || [];
   const textosOn = b.textos !== "sin";
   const refs: string[] = model.ref_photos || [];
   const yTxt = square ? 1310 : 1420, yBig = square ? 1050 : 1250;
   const t = (s: number) => Math.round((s / SP) * 100) / 100;
-  const caps = (list: any[], from: number, to: number) => (list || []).filter((x: any) => x.at >= from && x.at < to).slice(0, 3).map((x: any, k: number, arr: any[]) => {
-    const grande = x.estilo === "grande" || b.textos === "grandes";
-    const manus = !grande || b.textos === "manuscritos";
-    const words = String(x.texto || "").trim();
-    const lines = words.length > 14 && manus ? [[words.slice(0, words.lastIndexOf(" ", 14) > 0 ? words.lastIndexOf(" ", 14) : 14).trim(), "white"], [words.slice(words.lastIndexOf(" ", 14) > 0 ? words.lastIndexOf(" ", 14) : 14).trim(), x.clave ? "yellow" : "white"]] : [[manus ? words : words.toUpperCase(), x.clave ? "yellow" : "white"]];
-    const item: any = { t: "cap", font: manus ? "caveat" : "anton", lines, size: manus ? 120 : 140, x: "C", y: manus ? yTxt : yBig, at: t(Math.max(0, x.at - from)) };
+  // Textos de marca AnalytiQ (bcap: Montserrat, caja Azul Profundo, acento Azul Dato, Naranja Core solo en el llamado final).
+  // Se parten en lineas de maximo 13 letras para que nunca se salgan del cuadro (el editor ademas achica si hace falta).
+  const wrap = (txt: string, max = 13) => {
+    const out: string[] = []; let cur = "";
+    for (const w of String(txt || "").trim().split(/\s+/).filter(Boolean)) {
+      if (cur && (cur + " " + w).length > max) { out.push(cur); cur = w; } else cur = cur ? cur + " " + w : w;
+    }
+    if (cur) out.push(cur);
+    return out.slice(0, 3);
+  };
+  let naranjas = 0;
+  const bl = (txt: string, color: string) => wrap(txt).map((l) => [l, color]);
+  const caps = (list: any[], from: number, to: number, isLast: boolean) => (list || []).filter((x: any) => x.at >= from && x.at < to).slice(0, 3).map((x: any, k: number, arr: any[]) => {
+    const esCta = isLast && k === arr.length - 1 && naranjas < 2;
+    if (esCta) naranjas++;
+    const item: any = { t: "bcap", lines: bl(x.texto, esCta ? "orange" : x.clave ? "dato" : "white"), size: 76, x: "C", y: yTxt, at: t(Math.max(0, x.at - from)) };
     const next = arr[k + 1];
     if (next) item.until = t(next.at - from); else item.hold = true;
     return item;
@@ -158,7 +170,7 @@ export function buildBriefSpec(req: any, script: any, clipUrls: string[], model:
     const end = 8 - tail;
     const rev = r.director?.revelacion?.toma === i + 1, pas = r.director?.pasos?.toma === i + 1;
     const split = rev ? 5.4 : pas ? 3.2 : null;
-    const sc1: any = { dur: t((split ?? end) - head), brand: false, bg: { clip: i, start: head, scrim: 0, zoom: 0.05, punch: 1.0 }, items: caps(textos, head, split ?? 99) };
+    const sc1: any = { dur: t((split ?? end) - head), brand: false, bg: { clip: i, start: head, scrim: 0, zoom: 0.05, punch: 1.0 }, items: caps(textos, head, split ?? 99, last && split === null) };
     if (i > 0) sc1.whoosh = true;
     if (rev) sc1.sfx = ["riser"];
     scenes.push(sc1);
@@ -167,9 +179,9 @@ export function buildBriefSpec(req: any, script: any, clipUrls: string[], model:
       if (rev) {
         if (b.extras?.includes?.("fotos")) refs.slice(0, 3).forEach((u, k) => items.push({ t: "phone", src: u, style: "photo", w: k === 1 ? 270 : 230, x: [90, 405, 760][k], y: [560, 500, 580][k], at: 0.05 + k * 0.15, hold: true }));
         const tx = (r.director.revelacion.texto || []).slice(0, 2);
-        if (tx.length) items.push({ t: "cap", font: "anton", lines: tx.map((l: string, k: number) => [String(l).toUpperCase(), k === tx.length - 1 ? "yellow" : "white"]), size: 150, x: "C", y: 1120, at: 0.45, hold: true });
+        if (tx.length) items.push({ t: "bcap", lines: tx.flatMap((l: string, k: number) => bl(l, k === tx.length - 1 ? "dato" : "white")).slice(0, 4), size: 92, x: "C", y: 1120, at: 0.45, hold: true });
       } else {
-        (r.director.pasos.lista || []).slice(0, 3).forEach((p: string, k: number) => items.push({ t: "cap", font: "anton", lines: [[`${k + 1}. ${String(p).toUpperCase()}`, "white"]], size: 78, x: "C", y: 800 + k * 120, at: 0.15 + k * 1.2, hold: true }));
+        (r.director.pasos.lista || []).slice(0, 3).forEach((p: string, k: number) => items.push({ t: "bcap", lines: [[`${k + 1}. ${String(p).split(" ").slice(0, 3).join(" ")}`, k === 2 ? "dato" : "white"]], size: 64, x: "C", y: 800 + k * 130, at: 0.15 + k * 1.2, hold: true }));
         if (edit.foto_producto && req.product_image) items.push({ t: "phone", src: req.product_image, style: "photo", w: 260, x: "C", y: 480, at: 0.1, hold: true });
       }
       scenes.push({ dur: t(end - split), brand: false, bg: { clip: i, start: split, scrim: rev ? 0.86 : 0.9, zoom: 0.02, punch: 1.0 }, items, ...(rev ? { sfx: ["impact"] } : {}) });
